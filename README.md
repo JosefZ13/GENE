@@ -11,8 +11,8 @@ GENE är ett innovativt system som genererar realtidsberättelser baserat på an
 ## Mappstruktur
 - `/src`: Källkod för systemet.
   - `/api`: API-endpoints och backend-logik.
-  - `/unreal`: Unreal Engine-specifika skript.
-  - `/llm`: Moduler för LLM-integration.
+  - `/unreal_engine`: Unreal Engine-specifika skript.
+  - `/LLM`: Moduler för LLM-integration.
 - `/docs`: Projekt- och teknisk dokumentation.
 - `/tests`: Tester för systemets funktionalitet.
 
