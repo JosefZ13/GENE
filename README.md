@@ -19,5 +19,5 @@ GENE är ett innovativt system som genererar realtidsberättelser baserat på an
 ## Installation
 1. Klona repositoryn:
    ```bash
-   git clone https://github.com/your-username/GENE.git
+   git clone https://github.com/JosefZ13/GENE.git
    cd GENE
