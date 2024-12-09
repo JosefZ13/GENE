@@ -13,46 +13,60 @@ void UHttpHandler_Get::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    FetchGameState();
+   // FetchGameState();
 }
 
-void UHttpHandler_Get::httpSendReq(FString* PayloadJson)
+void UHttpHandler_Get::httpSendReq(const TSharedPtr<FJsonObject>& Data)
 {
-    UE_LOG(LogTemp, Log, TEXT("Payload received"));
-
-    // Combine Payload and Prompt
-    FString prompt = TEXT("Describe the relative movement from this JSON object:\n");
-    FString CombinedPayload = FString::Printf(TEXT("{\"prompt\": \"%s%s\"}"), *prompt, **PayloadJson);
-    UE_LOG(LogTemp, Log, TEXT("COMBINED PAYLOAD %s"), *CombinedPayload);
-
-    // Send HTTP Request
     FHttpModule* Http = &FHttpModule::Get();
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http->CreateRequest();
 
-    Request->SetURL(TEXT("http://127.0.0.1:2345/v1/completions")); // Adjust URL as needed
+    FString prompt = FString::Printf(TEXT("Given the following data, calculate and describe the relative movement between the 'From' and 'To' points in 3D space. Provide a summary of the displacement vector and the direction of movement. \n"));
+
+    TSharedPtr<FJsonObject> JsonPayload = MakeShareable(new FJsonObject);
+    JsonPayload->SetStringField(TEXT("prompt"), prompt);
+    JsonPayload->SetObjectField(TEXT("data"), Data); 
+
+    FString SerializedPayload;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&SerializedPayload);
+    FJsonSerializer::Serialize(JsonPayload.ToSharedRef(), Writer);
+
+    Request->SetURL(TEXT("http://127.0.0.1:1234/v1/completions")); // LM Studio URL
     Request->SetVerb(TEXT("POST"));
     Request->SetHeader(TEXT("Content-Type"), TEXT("application/json; charset=utf-8"));
 
-    Request->SetContentAsString(CombinedPayload);
+    Request->SetContentAsString(SerializedPayload);
     Request->OnProcessRequestComplete().BindUObject(this, &UHttpHandler_Get::OnResponseReceived);
     if (Request->ProcessRequest())
     {
-        UE_LOG(LogTemp, Log, TEXT("LOG _____ HTTP  request successfully sent."));
+        UE_LOG(LogTemp, Log, TEXT("Payload sent: %s"), *SerializedPayload);
     }
     else
     {
-        UE_LOG(LogTemp, Error, TEXT("LOG _____ Failed to send HTTP request."));
+        UE_LOG(LogTemp, Error, TEXT("Failed to send payload: %s"), *SerializedPayload);
     }
 }
 
 void UHttpHandler_Get::FetchGameState()
 {
+
     UE_LOG(LogTemp, Log, TEXT("FetchGameState called."));
-    FString ExamplePayload = TEXT("{ \"example\": \"game state data\" }"); // Example payload
-    httpSendReq(&ExamplePayload);
+    FString ExamplePayload = TEXT("{ \"example\": \"game state data\" }"); 
 }
 
 void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+{
+    if (bWasSuccessful && Response.IsValid())
+    {
+        FString ResponseContent = Response->GetContentAsString();
+        UE_LOG(LogTemp, Log, TEXT("LLM Response: %s"), *ResponseContent);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to receive a valid response from the LLM"));
+    }
+}
+/*
 {
     if (bWasSuccessful && Response.IsValid())
     {
@@ -63,13 +77,18 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
 
         if (FJsonSerializer::Deserialize(Reader, JsonResponse) && JsonResponse.IsValid())
         {
+            UE_LOG(LogTemp, Warning, TEXT("JSON response deserialized successfully."));
+
             const TArray<TSharedPtr<FJsonValue>>* ChoicesArray;
             if (JsonResponse->TryGetArrayField(TEXT("choices"), ChoicesArray) && ChoicesArray && ChoicesArray->Num() > 0)
             {
-                TSharedPtr<FJsonValue> ChoiceValue = (*ChoicesArray)[0];
+                UE_LOG(LogTemp, Warning, TEXT("'choices' array found with %d elements."), ChoicesArray->Num());
+
+                // Access the first element of the "choices" array
+                TSharedPtr<FJsonValue> ChoiceValue = (*ChoicesArray)[0];  // Access the first element
                 if (ChoiceValue.IsValid())
                 {
-                    TSharedPtr<FJsonObject> ChoiceObject = ChoiceValue->AsObject();
+                    TSharedPtr<FJsonObject> ChoiceObject = ChoiceValue->AsObject();  // Convert it to a JsonObject
                     if (ChoiceObject.IsValid())
                     {
                         FString AIResponse;
@@ -77,21 +96,57 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
                         {
                             UE_LOG(LogTemp, Warning, TEXT("AI response: %s"), *AIResponse);
 
+                            // Update the text block with the response
                             if (GameStateText)
                             {
                                 GameStateText->SetText(FText::FromString(AIResponse));
-                                return; // Successfully processed
+                                UE_LOG(LogTemp, Warning, TEXT("GameStateText updated successfully."));
                             }
+                            else
+                            {
+                                UE_LOG(LogTemp, Error, TEXT("GameStateText is null."));
+                            }
+                            return; // Successfully processed
+                        }
+                        else
+                        {
+                            UE_LOG(LogTemp, Error, TEXT("Failed to extract 'text' field from 'choices[0]'."));
                         }
                     }
+                    else
+                    {
+                        UE_LOG(LogTemp, Error, TEXT("ChoiceObject is invalid."));
+                    }
+                }
+                else
+                {
+                    UE_LOG(LogTemp, Error, TEXT("ChoiceValue is invalid."));
                 }
             }
+            else
+            {
+                UE_LOG(LogTemp, Error, TEXT("Failed to find or parse 'choices' array."));
+            }
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to deserialize JSON response."));
         }
     }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("HTTP request failed or response is invalid."));
+    }
 
-    // Fallback in case of errors
+    // Fallback: Handle errors and update UI with a failure message
     if (GameStateText)
     {
-        GameStateText->SetText(FText::FromString(TEXT("Failed to process LLM response.")));
+        GameStateText->SetText(FText::FromString(TEXT("Failed to fetch or parse game state.")));
+        UE_LOG(LogTemp, Warning, TEXT("Fallback: Displayed failure message in GameStateText."));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("GameStateText is null in fallback."));
     }
 }
+*/
