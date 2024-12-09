@@ -37,18 +37,46 @@ AprojectGameMode::AprojectGameMode()
 	DefaultPawnClass = PlayerPawnClassFinder.Class;
 
 }
-FString AprojectGameMode::GetActors() {
+
+void AprojectGameMode::BeginPlay()
+{
+	Super::BeginPlay();
+	PrimaryActorTick.bCanEverTick = true;
+	GetActors();
+	TickForGetWorld();
+
+}
+
+void AprojectGameMode::TickForGetWorld()
+{
+	if (GetWorld())
+	{
+		GetWorld()->GetTimerManager().SetTimer(
+			TimerHandle,                       // Timer Handle
+			this,                              // Object that owns the function
+			&AprojectGameMode::PerformTracking,    // Function to call
+			5.0f,                              // Delay (seconds)
+			true                               // Loop? (true = repeat every 5 seconds)
+		);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("GetWorld is null. Timer not set."));
+	}
+}
+
+void AprojectGameMode::GetActors() {
 
 	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
 	if (PlayerPawn)
-	{ 
-		FTrackedObject PlayerObject; 
-		PlayerObject.Actor = PlayerPawn; 
-		PlayerObject.PreviousPosition = PlayerPawn->GetActorLocation(); 
-		PlayerObject.ActorName = TEXT("Player");   
-		PlayerObject.IsPlayer = true; 
-		
-		TrackedObjects.Add(PlayerObject); 
+	{
+		FTrackedObject PlayerObject;
+		PlayerObject.Actor = PlayerPawn;
+		PlayerObject.PreviousPosition = PlayerPawn->GetActorLocation();
+		PlayerObject.ActorName = TEXT("Player");
+		PlayerObject.IsPlayer = true;
+
+		TrackedObjects.Add(PlayerObject);
 	}
 
 	TArray<AActor*> AllActors;
@@ -69,14 +97,14 @@ FString AprojectGameMode::GetActors() {
 	UE_LOG(LogTemp, Log, TEXT("Tracking %d objects"), TrackedObjects.Num());
 }
 
-void AprojectGameMode::Tick(float deltaTime) {
+void AprojectGameMode::PerformTracking() {
 	/*
 	This logic should understand movements relative to the player.
 	- Creates a Json-like string which is our payload.
 	- Logs every movement data in the gameworld
 
 	*/
-	Super::Tick(deltaTime);
+	//Super::Tick(deltaTime);
 
 	FVector PlayerPosition = FVector::ZeroVector;
 	FVector PlayerForward = FVector::ZeroVector;
@@ -94,7 +122,7 @@ void AprojectGameMode::Tick(float deltaTime) {
 			break;
 		}
 	}
-		// looping for all Actors
+	// looping for all Actors
 	for (FTrackedObject& TrackedObject : TrackedObjects)
 	{
 		if (TrackedObject.Actor && IsValid(TrackedObject.Actor))
@@ -138,7 +166,7 @@ void AprojectGameMode::Tick(float deltaTime) {
 				{
 					movement = TEXT("Player moved in the game world");
 				}
-
+				/*
 				FString Payload = FString::Printf(TEXT(
 					"{ \"ActorName\": \"%s\", \"From\": { \"X\": %.2f, \"Y\": %.2f, \"Z\": %.2f }, \"To\": { \"X\": %.2f, \"Y\": %.2f, \"Z\": %.2f }, \"RelativeMovement\": \"%s\" }"),
 					*TrackedObject.ActorName,
@@ -149,25 +177,60 @@ void AprojectGameMode::Tick(float deltaTime) {
 				UE_LOG(LogTemp, Log, TEXT("%s"), *Payload);
 
 				TrackedObject.PreviousPosition = CurrentPosition;
+				
+
+
+				if (UWorld* World = GetWorld())
+				{
+					HttpHandler = CreateWidget<UHttpHandler_Get>(World, UHttpHandler_Get::StaticClass());
+					if (HttpHandler && !Payload.IsEmpty())
+					{
+						HttpHandler->AddToViewport();
+
+						HttpHandler->httpSendReq(&Payload);
+					}
+					else
+					{
+						UE_LOG(LogTemp, Error, TEXT("HttpHandler is null or Payload is empty!"));
+					}
+				}
+				*/
+				TSharedPtr<FJsonObject> DataObject = MakeShareable(new FJsonObject);
+				DataObject->SetStringField(TEXT("ActorName"), TrackedObject.ActorName);
+
+				TSharedPtr<FJsonObject> FromObject = MakeShareable(new FJsonObject);
+				FromObject->SetNumberField(TEXT("X"), TrackedObject.PreviousPosition.X);
+				FromObject->SetNumberField(TEXT("Y"), TrackedObject.PreviousPosition.Y);
+				FromObject->SetNumberField(TEXT("Z"), TrackedObject.PreviousPosition.Z);
+				DataObject->SetObjectField(TEXT("From"), FromObject);
+
+				TSharedPtr<FJsonObject> ToObject = MakeShareable(new FJsonObject);
+				ToObject->SetNumberField(TEXT("X"), CurrentPosition.X);
+				ToObject->SetNumberField(TEXT("Y"), CurrentPosition.Y);
+				ToObject->SetNumberField(TEXT("Z"), CurrentPosition.Z);
+				DataObject->SetObjectField(TEXT("To"), ToObject);
+
+				DataObject->SetStringField(TEXT("RelativeMovement"), MovementDescription);
+
+
+				// Update the tracked object's previous position
+				TrackedObject.PreviousPosition = CurrentPosition;
+
+				if (UWorld* World = GetWorld())
+				{
+					HttpHandler = CreateWidget<UHttpHandler_Get>(World, UHttpHandler_Get::StaticClass());
+					if (HttpHandler)
+					{
+						HttpHandler->AddToViewport();
+
+						HttpHandler->httpSendReq(DataObject);
+					}
+					else
+					{
+						UE_LOG(LogTemp, Error, TEXT("HttpHandler is null or Payload is empty!"));
+					}
+				}
 			}
-		}
-	}
-}
-
-void AprojectGameMode::SendPayload(FString Payload){
-
-	if (UWorld* World = GetWorld())
-	{
-		HttpHandler = CreateWidget<UHttpHandler_Get>(World, UHttpHandler_Get::StaticClass());
-		if (HttpHandler && !Payload.IsEmpty())
-		{
-			HttpHandler->AddToViewport();
-
-			HttpHandler->httpSendReq(&Payload);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("HttpHandler is null or Payload is empty!"));
 		}
 	}
 }
