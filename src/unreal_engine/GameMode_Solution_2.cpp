@@ -9,7 +9,7 @@
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
 #include "Kismet/GameplayStatics.h"
-//#include "HttpHandler_Get.h"
+#include "HttpHandler_Get.h"
 
 /*
 
@@ -44,6 +44,8 @@ void AprojectGameMode::BeginPlay()
 	PrimaryActorTick.bCanEverTick = true;
 	GetActors();
 	TickForGetWorld();
+
+	
 
 }
 
@@ -166,55 +168,13 @@ void AprojectGameMode::PerformTracking() {
 				{
 					movement = TEXT("Player moved in the game world");
 				}
-				/*
+
 				FString Payload = FString::Printf(TEXT(
 					"{ \"ActorName\": \"%s\", \"From\": { \"X\": %.2f, \"Y\": %.2f, \"Z\": %.2f }, \"To\": { \"X\": %.2f, \"Y\": %.2f, \"Z\": %.2f }, \"RelativeMovement\": \"%s\" }"),
 					*TrackedObject.ActorName,
 					TrackedObject.PreviousPosition.X, TrackedObject.PreviousPosition.Y, TrackedObject.PreviousPosition.Z,
 					CurrentPosition.X, CurrentPosition.Y, CurrentPosition.Z,
 					*MovementDescription);
-
-				UE_LOG(LogTemp, Log, TEXT("%s"), *Payload);
-
-				TrackedObject.PreviousPosition = CurrentPosition;
-				
-
-
-				if (UWorld* World = GetWorld())
-				{
-					HttpHandler = CreateWidget<UHttpHandler_Get>(World, UHttpHandler_Get::StaticClass());
-					if (HttpHandler && !Payload.IsEmpty())
-					{
-						HttpHandler->AddToViewport();
-
-						HttpHandler->httpSendReq(&Payload);
-					}
-					else
-					{
-						UE_LOG(LogTemp, Error, TEXT("HttpHandler is null or Payload is empty!"));
-					}
-				}
-				*/
-				TSharedPtr<FJsonObject> DataObject = MakeShareable(new FJsonObject);
-				DataObject->SetStringField(TEXT("ActorName"), TrackedObject.ActorName);
-
-				TSharedPtr<FJsonObject> FromObject = MakeShareable(new FJsonObject);
-				FromObject->SetNumberField(TEXT("X"), TrackedObject.PreviousPosition.X);
-				FromObject->SetNumberField(TEXT("Y"), TrackedObject.PreviousPosition.Y);
-				FromObject->SetNumberField(TEXT("Z"), TrackedObject.PreviousPosition.Z);
-				DataObject->SetObjectField(TEXT("From"), FromObject);
-
-				TSharedPtr<FJsonObject> ToObject = MakeShareable(new FJsonObject);
-				ToObject->SetNumberField(TEXT("X"), CurrentPosition.X);
-				ToObject->SetNumberField(TEXT("Y"), CurrentPosition.Y);
-				ToObject->SetNumberField(TEXT("Z"), CurrentPosition.Z);
-				DataObject->SetObjectField(TEXT("To"), ToObject);
-
-				DataObject->SetStringField(TEXT("RelativeMovement"), MovementDescription);
-
-
-				// Update the tracked object's previous position
-				TrackedObject.PreviousPosition = CurrentPosition;
 
 				if (UWorld* World = GetWorld())
 				{
@@ -223,7 +183,19 @@ void AprojectGameMode::PerformTracking() {
 					{
 						HttpHandler->AddToViewport();
 
-						HttpHandler->httpSendReq(DataObject);
+						GetWorld()->GetTimerManager().SetTimerForNextTick([this, Payload]()
+							{
+								// Now call httpSendReq with the payload, ensuring the widget is fully initialized
+								if (HttpHandler)
+								{
+									HttpHandler->httpSendReq(Payload);
+								}
+								else
+								{
+									UE_LOG(LogTemp, Error, TEXT("HttpHandler is null when sending payload."));
+								}
+							});
+
 					}
 					else
 					{
