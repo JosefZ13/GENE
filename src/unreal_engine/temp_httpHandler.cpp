@@ -12,20 +12,31 @@
 void UHttpHandler_Get::NativeConstruct()
 {
     Super::NativeConstruct();
-
+   
    // FetchGameState();
+    if (GameStateText)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("GameStateText is bound correctly!"));
+        GameStateText->SetText(FText::FromString("Widget Initialized"));
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("GameStateText is null in NativeConstruct."));
+    }
+    
 }
 
-void UHttpHandler_Get::httpSendReq(const TSharedPtr<FJsonObject>& Data)
+void UHttpHandler_Get::httpSendReq(FString Payload)
 {
     FHttpModule* Http = &FHttpModule::Get();
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http->CreateRequest();
 
-    FString prompt = FString::Printf(TEXT("Given the following data, calculate and describe the relative movement between the 'From' and 'To' points in 3D space. Provide a summary of the displacement vector and the direction of movement. \n"));
+    FString question = FString::Printf(TEXT("Which ActorName and relative movement description is mentioned in the provided data. \n"));
+
+    FString prompt = question + Payload;
 
     TSharedPtr<FJsonObject> JsonPayload = MakeShareable(new FJsonObject);
     JsonPayload->SetStringField(TEXT("prompt"), prompt);
-    JsonPayload->SetObjectField(TEXT("data"), Data); 
 
     FString SerializedPayload;
     TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&SerializedPayload);
@@ -47,26 +58,8 @@ void UHttpHandler_Get::httpSendReq(const TSharedPtr<FJsonObject>& Data)
     }
 }
 
-void UHttpHandler_Get::FetchGameState()
-{
-
-    UE_LOG(LogTemp, Log, TEXT("FetchGameState called."));
-    FString ExamplePayload = TEXT("{ \"example\": \"game state data\" }"); 
-}
 
 void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
-{
-    if (bWasSuccessful && Response.IsValid())
-    {
-        FString ResponseContent = Response->GetContentAsString();
-        UE_LOG(LogTemp, Log, TEXT("LLM Response: %s"), *ResponseContent);
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("Failed to receive a valid response from the LLM"));
-    }
-}
-/*
 {
     if (bWasSuccessful && Response.IsValid())
     {
@@ -99,8 +92,11 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
                             // Update the text block with the response
                             if (GameStateText)
                             {
-                                GameStateText->SetText(FText::FromString(AIResponse));
-                                UE_LOG(LogTemp, Warning, TEXT("GameStateText updated successfully."));
+                                AsyncTask(ENamedThreads::GameThread, [this, AIResponse]()
+                                    {
+                                        GameStateText->SetText(FText::FromString(AIResponse));
+                                        UE_LOG(LogTemp, Warning, TEXT("GameStateText updated successfully."));
+                                    });
                             }
                             else
                             {
@@ -149,4 +145,3 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
         UE_LOG(LogTemp, Error, TEXT("GameStateText is null in fallback."));
     }
 }
-*/
