@@ -6,6 +6,7 @@
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
 #include "HttpModule.h"
+#include "Components/TextBlock.h"
 #include "HttpHandler_Get.generated.h"
 
 
@@ -17,11 +18,10 @@ class PROJECT_API UHttpHandler_Get : public UUserWidget
 
 public:
 	virtual void NativeConstruct() override;
-	void httpSendReq(const TSharedPtr<FJsonObject>& Data);
+	void httpSendReq(FString Payload);
+	//void FetchGameState();
 
-	void FetchGameState();
-protected:
-	UPROPERTY(meta = (BindWidget))
+	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
 	class UTextBlock* GameStateText;
 
 private:
