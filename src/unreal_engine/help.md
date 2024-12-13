@@ -1,0 +1,3 @@
+To generate all files in solution run: 
+C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe" -projectfiles -game -engine -project="C:\Users\fash0013\Documents\Unreal Projects\project\pr oject.uproject"
+You might need to change path
