@@ -18,9 +18,13 @@ public:
 	void GetActors();
 	void PerformTracking();
 	void TickForGetWorld();
-	FString GetPlayerRelativity(const AActor* TargetActor);
+	void WholeWorldJson();
+	void GetPlayerRelativity(const AActor* TargetActor);
+	void SendPayload(const FString& Payload);
 	FString DetermineQuadrant(const FVector& RelativeVector);
 	float CalculateAngle(const FVector& RelativeVector);
+	FString GetRelativePosition(const float& ForwardDot, const float& RightDot);
+
 	//void SendPayload(FString Payload);
 
 
