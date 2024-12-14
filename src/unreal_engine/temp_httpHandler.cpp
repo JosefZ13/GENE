@@ -31,7 +31,7 @@ void UHttpHandler_Get::httpSendReq(FString Payload)
     FHttpModule* Http = &FHttpModule::Get();
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http->CreateRequest();
 
-    FString question = FString::Printf(TEXT("Which ActorName and relative movement description is mentioned in the provided data. \n"));
+    FString question = FString::Printf(TEXT("Tell the ObjectName, its distance and the relative position that is mentioned in the provided data. \n"));
 
     FString prompt = question + Payload;
 
