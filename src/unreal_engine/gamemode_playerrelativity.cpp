@@ -8,6 +8,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "Dom/JsonObject.h"
 #include "Serialization/JsonReader.h"
+#include "Camera/CameraComponent.h"
+#include "Engine/Texture.h"
 #include "Kismet/GameplayStatics.h"
 #include "HttpHandler_Get.h"
 
@@ -41,11 +43,10 @@ AprojectGameMode::AprojectGameMode()
 void AprojectGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+	WholeWorldJson();
 	PrimaryActorTick.bCanEverTick = true;
 	GetActors();
 	TickForGetWorld();
-
-	
 
 }
 
@@ -56,7 +57,7 @@ void AprojectGameMode::TickForGetWorld()
 		GetWorld()->GetTimerManager().SetTimer(
 			TimerHandle,                       // Timer Handle
 			this,                              // Object that owns the function
-			&AprojectGameMode::PerformTracking,    // Function to call
+			&AprojectGameMode::PerformTracking,	// Function to call
 			5.0f,                              // Delay (seconds)
 			true                               // Loop? (true = repeat every 5 seconds)
 		);
@@ -65,6 +66,12 @@ void AprojectGameMode::TickForGetWorld()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("GetWorld is null. Timer not set."));
 	}
+}
+
+void AprojectGameMode::WholeWorldJson()
+{
+ // there will be some code here for all game data
+
 }
 
 void AprojectGameMode::GetActors() {
@@ -88,12 +95,15 @@ void AprojectGameMode::GetActors() {
 	{
 		if (Actor)
 		{
-			FTrackedObject NewTrackedObject;
-			NewTrackedObject.Actor = Actor;
-			NewTrackedObject.ActorName = Actor->GetName();
-			NewTrackedObject.PreviousPosition = Actor->GetActorLocation();
+			if (!Cast<APawn>(Actor) && !Actor->FindComponentByClass<UCameraComponent>() && !Actor->IsA(ACharacter::StaticClass()) && !Actor->IsA(APlayerCameraManager::StaticClass()))
+			{
+				FTrackedObject NewTrackedObject;
+				NewTrackedObject.Actor = Actor;
+				NewTrackedObject.ActorName = Actor->GetActorLabel();
+				NewTrackedObject.PreviousPosition = Actor->GetActorLocation();
 
-			TrackedObjects.Add(NewTrackedObject);
+				TrackedObjects.Add(NewTrackedObject);
+			}
 		}
 	}
 	UE_LOG(LogTemp, Log, TEXT("Tracking %d objects"), TrackedObjects.Num());
@@ -109,8 +119,6 @@ void AprojectGameMode::PerformTracking() {
 	//Super::Tick(deltaTime);
 
 	FVector PlayerPosition = FVector::ZeroVector;
-	//FVector PlayerForward = FVector::ZeroVector;
-	//FVector PlayerRight = FVector::ZeroVector;
 
 	// Looping for Player
 	for (const FTrackedObject& Object : TrackedObjects)
@@ -118,9 +126,7 @@ void AprojectGameMode::PerformTracking() {
 		if (Object.IsPlayer && Object.Actor)
 		{
 			PlayerPosition = Object.Actor->GetActorLocation();
-			//FRotator PlayerRotation = Object.Actor->GetActorRotation();
-			//PlayerForward = PlayerRotation.Vector(); // Forward vector
-			//PlayerRight = FVector::CrossProduct(PlayerForward, FVector::UpVector); // Right vector
+			
 			break;
 		}
 	}
@@ -133,103 +139,83 @@ void AprojectGameMode::PerformTracking() {
 
 			if (!CurrentPosition.Equals(TrackedObject.PreviousPosition, KINDA_SMALL_NUMBER))
 			{
-				//FVector RelativePosition = CurrentPosition - PlayerPosition;
-				FString NewPayload = GetPlayerRelativity(TrackedObject.Actor);
-
-				// DotProduct is a math function in ue. It computes two 3D vectors like:
-				// DotProduct(a, B) --> AxB = Ax * Bx + Ay * By + Az * Bz
-				//float ForwardOffset = FVector::DotProduct(RelativePosition, PlayerForward);
-				//float RightOffset = FVector::DotProduct(RelativePosition, PlayerRight);
-				UE_LOG(LogTemp, Log, TEXT("Relativity Data: %s"), *NewPayload);
-
-				/*
-				FString movement = TEXT("");
-
-				if (!TrackedObject.IsPlayer)
-				{
-					FVector PreviousRelativePosition = TrackedObject.PreviousPosition - PlayerPosition;
-					float PreviousForwardOffset = FVector::DotProduct(PreviousRelativePosition, PlayerForward);
-					float PreviousRightOffset = FVector::DotProduct(PreviousRelativePosition, PlayerRight);
-
-					if (ForwardOffset > PreviousForwardOffset)
-						MovementDescription += TEXT("moved forward ");
-					else if (ForwardOffset < PreviousForwardOffset)
-						MovementDescription += TEXT("moved backward ");
-
-					if (RightOffset > PreviousRightOffset)
-						MovementDescription += TEXT("and to the right");
-					else if (RightOffset < PreviousRightOffset)
-						MovementDescription += TEXT("and to the left");
-
-					if (MovementDescription.IsEmpty())
-						MovementDescription = TEXT("did not move relative to the player?");
-				}
-				else
-				{
-					MovementDescription = TEXT("Player moved in the game world"); 
-				}
-
-				FString Payload = FString::Printf(TEXT(
-					"{ \"ActorName\": \"%s\", \"From\": { \"X\": %.2f, \"Y\": %.2f, \"Z\": %.2f }, \"To\": { \"X\": %.2f, \"Y\": %.2f, \"Z\": %.2f }, \"RelativeMovement\": \"%s\" }"),
-					*TrackedObject.ActorName,
-					TrackedObject.PreviousPosition.X, TrackedObject.PreviousPosition.Y, TrackedObject.PreviousPosition.Z,
-					CurrentPosition.X, CurrentPosition.Y, CurrentPosition.Z,
-					*MovementDescription);
-				*/
-
-				if (UWorld* World = GetWorld())
-				{
-					HttpHandler = CreateWidget<UHttpHandler_Get>(World, UHttpHandler_Get::StaticClass());
-					if (HttpHandler)
-					{
-						HttpHandler->AddToViewport();
-
-						HttpHandler->httpSendReq(NewPayload);
-
-					}
-					else
-					{
-						UE_LOG(LogTemp, Error, TEXT("HttpHandler is null or Payload is empty!"));
-					}
-				}
+				GetPlayerRelativity(TrackedObject.Actor);
+				TrackedObject.PreviousPosition = CurrentPosition;
 			}
 		}
 	}
 }
+void AprojectGameMode::SendPayload(const FString& Payload)
+{
+	if (UWorld* World = GetWorld())
+	{
+		HttpHandler = CreateWidget<UHttpHandler_Get>(World, UHttpHandler_Get::StaticClass());
+		if (HttpHandler)
+		{
+			HttpHandler->AddToViewport();
 
-FString AprojectGameMode::GetPlayerRelativity(const AActor* TargetActor)
+			HttpHandler->httpSendReq(Payload);
+
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("HttpHandler is null or Payload is empty!"));
+		}
+	}
+}
+
+void AprojectGameMode::GetPlayerRelativity(const AActor* TargetActor)
 {
 	if (!TargetActor || !TrackedObjects.Num())
-		return TEXT("Invalid actor or no tracked objects.");
+		UE_LOG(LogTemp, Error, TEXT("Invalid actor or no tracked objects."));
 
 	FVector PlayerPosition = FVector::ZeroVector;
+	FVector PlayerForward = FVector::ZeroVector;
+	FVector PlayerRight = FVector::ZeroVector;
 
 	for (const FTrackedObject& Object : TrackedObjects)
 	{
 		if (Object.IsPlayer && Object.Actor)
 		{
 			PlayerPosition = Object.Actor->GetActorLocation();
+			PlayerForward = Object.Actor->GetActorForwardVector();
+			PlayerRight = Object.Actor->GetActorRightVector();
 			break;
 		}
 	}
-
+	FVector ActorLocation = TargetActor->GetActorLocation(); 
 	FVector RelativeVector = TargetActor->GetActorLocation() - PlayerPosition;
+	FString name = TargetActor->GetName();
 	float Distance = RelativeVector.Size(); // Get magnitude of vector
-	FString Quadrant = DetermineQuadrant(RelativeVector);
-	float Angle = CalculateAngle(RelativeVector);
+	UE_LOG(LogTemp, Log, TEXT("Distances: %.2f | %s"), Distance, *name);
 
-	FString Result = FString::Printf(TEXT(
-		"{ \"TargetActor\": \"%s\", \"Distance\": %.2f, \"Angle\": %.2f, \"Quadrant\": \"%s\" }"),
-		*TargetActor->GetName(),
-		Distance,
-		Angle,
-		*Quadrant);
+	float ForwardDot = FVector::DotProduct(PlayerForward, RelativeVector);
+	float RightDot = FVector::DotProduct(PlayerRight, RelativeVector);
 
-	return Result;
+	if (Distance < 800)
+	{
+		FString Payload = GetRelativePosition(ForwardDot, RightDot);
+		UE_LOG(LogTemp, Log, TEXT("Relativity Data: %s"), *Payload);
+
+		FString Result = FString::Printf(TEXT(
+			"{ \"TargetObject\": \"%s\", \"Distance\": %.2f, \"Relative Position\": \"%s\" }"),
+			*TargetActor->GetName(),
+			Distance,
+			*Payload);
+		UE_LOG(LogTemp, Log, TEXT("Relativity Data: %s"), *Result);
+
+		DrawDebugLine(GetWorld(), PlayerPosition, ActorLocation, FColor::Green, false, 5.0f, 0, 5.0f);
+		SendPayload(Result);
+	}
+	else
+	{
+		DrawDebugLine(GetWorld(), PlayerPosition, ActorLocation, FColor::Red, false, 5.0f, 0, 5.0f);
+	}
 }
 
 FString AprojectGameMode::DetermineQuadrant(const FVector& RelativeVector)
 {
+	// Function not used right now
 	if (RelativeVector.X >= 0 && RelativeVector.Y >= 0)
 		return TEXT("North-East");
 	else if (RelativeVector.X < 0 && RelativeVector.Y >= 0)
@@ -242,5 +228,36 @@ FString AprojectGameMode::DetermineQuadrant(const FVector& RelativeVector)
 
 float AprojectGameMode::CalculateAngle(const FVector& RelativeVector)
 {
+	// Function not used right now
 	return FMath::Atan2(RelativeVector.Y, RelativeVector.X) * (180.f / PI);
+}
+
+FString AprojectGameMode::GetRelativePosition(const float& ForwardDot, const float& RightDot)
+{
+	if (ForwardDot > 0) // front of player
+	{
+		if (RightDot > 0)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Actor is in front-right of the player."));
+			return FString(TEXT("Actor is in front-right of the player."));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Log, TEXT("Actor is in front-left of the player."));
+			return FString(TEXT("Actor is in front-left of the player"));
+		}
+	}
+	else // behind player
+	{
+		if (RightDot > 0)
+		{
+			UE_LOG(LogTemp, Log, TEXT("Actor is behind-right of the player."));
+			return FString(TEXT("Actor is behind-right of the player."));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Log, TEXT("Actor is behind-left of the player."));
+			return FString(TEXT("Actor is behind-left of the player."));
+		}
+	}
 }
