@@ -7,6 +7,7 @@
 #include "Interfaces/IHttpResponse.h"
 #include "JsonUtilities.h"
 #include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
 
 void UHttpHandler_Get::NativeConstruct()
@@ -23,7 +24,6 @@ void UHttpHandler_Get::NativeConstruct()
     {
         UE_LOG(LogTemp, Error, TEXT("GameStateText is null in NativeConstruct."));
     }
-    
 }
 
 void UHttpHandler_Get::httpSendReq(FString Payload)
@@ -58,7 +58,6 @@ void UHttpHandler_Get::httpSendReq(FString Payload)
     }
 }
 
-
 void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
     if (bWasSuccessful && Response.IsValid())
@@ -76,7 +75,7 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
             if (JsonResponse->TryGetArrayField(TEXT("choices"), ChoicesArray) && ChoicesArray && ChoicesArray->Num() > 0)
             {
                 UE_LOG(LogTemp, Warning, TEXT("'choices' array found with %d elements."), ChoicesArray->Num());
-
+         
                 // Access the first element of the "choices" array
                 TSharedPtr<FJsonValue> ChoiceValue = (*ChoicesArray)[0];  // Access the first element
                 if (ChoiceValue.IsValid())
@@ -88,8 +87,20 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
                         if (ChoiceObject->TryGetStringField(TEXT("text"), AIResponse))
                         {
                             UE_LOG(LogTemp, Warning, TEXT("AI response: %s"), *AIResponse);
-
+                            FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt");
+                            FString FileContent = *AIResponse;
+                            
+                            if (FFileHelper::SaveStringToFile(FileContent, *FilePath))
+                            {
+                                UE_LOG(LogTemp, Log, TEXT("File written successfully to: %s"), *FilePath);
+                            }
+                            else
+                            {
+                                UE_LOG(LogTemp, Error, TEXT("Failed to write to file: %s"), *FilePath);
+                            }
+                            
                             // Update the text block with the response
+                            /*
                             if (GameStateText)
                             {
                                 AsyncTask(ENamedThreads::GameThread, [this, AIResponse]()
@@ -102,6 +113,7 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
                             {
                                 UE_LOG(LogTemp, Error, TEXT("GameStateText is null."));
                             }
+                            */
                             return; // Successfully processed
                         }
                         else
