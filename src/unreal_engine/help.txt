@@ -1,2 +1,2 @@
 To generate all files in solution run (You might need to change path): 
-C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe" -projectfiles -game -engine -project="C:\Users\fash0013\Documents\Unreal Projects\project\pr oject.uproject"
+C:\Program Files\Epic Games\UE_5.4\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.exe" -projectfiles -game -engine -project="C:\Users\fash0013\Perforce\fash0013_IT012868_1500\OpenLab\StudentProjects\OL23_2024\project"
