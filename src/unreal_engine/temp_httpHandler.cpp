@@ -9,6 +9,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
+#include "Engine/Engine.h"
 
 void UHttpHandler_Get::NativeConstruct()
 {
@@ -31,7 +32,7 @@ void UHttpHandler_Get::httpSendReq(FString Payload)
     FHttpModule* Http = &FHttpModule::Get();
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http->CreateRequest();
 
-    FString question = FString::Printf(TEXT("Tell the ObjectName, its distance and the relative position that is mentioned in the provided data. \n"));
+    FString question = FString::Printf(TEXT("Tell the ObjectName, its distance and the relative position that is mentioned in the provided data. If you have provided the information, stop telling me more.\n"));
 
     FString prompt = question + Payload;
 
@@ -87,8 +88,10 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
                         if (ChoiceObject->TryGetStringField(TEXT("text"), AIResponse))
                         {
                             UE_LOG(LogTemp, Warning, TEXT("AI response: %s"), *AIResponse);
+
                             FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt");
                             FString FileContent = *AIResponse;
+                            UE_LOG(LogTemp, Warning, TEXT("FilePath: %s"), *FilePath);
                             
                             if (FFileHelper::SaveStringToFile(FileContent, *FilePath))
                             {
