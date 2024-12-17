@@ -43,8 +43,18 @@ AprojectGameMode::AprojectGameMode()
 void AprojectGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-	WholeWorldJson();
-	PrimaryActorTick.bCanEverTick = true;
+
+	FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt"); 
+	if (FFileHelper::SaveStringToFile(TEXT(""), *FilePath)) 
+	{
+		UE_LOG(LogTemp, Log, TEXT("File content cleared successfully: %s"), *FilePath);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to clear file content: %s"), *FilePath);
+	}
+	WholeWorldJson();  
+	PrimaryActorTick.bCanEverTick = true; 
 	GetActors();
 	TickForGetWorld();
 
@@ -57,7 +67,7 @@ void AprojectGameMode::TickForGetWorld()
 		GetWorld()->GetTimerManager().SetTimer(
 			TimerHandle,                       // Timer Handle
 			this,                              // Object that owns the function
-			&AprojectGameMode::PerformTracking,	// Function to call
+			&AprojectGameMode::PerformTracking,    // Function to call
 			5.0f,                              // Delay (seconds)
 			true                               // Loop? (true = repeat every 5 seconds)
 		);
@@ -185,7 +195,7 @@ void AprojectGameMode::GetPlayerRelativity(const AActor* TargetActor)
 	}
 	FVector ActorLocation = TargetActor->GetActorLocation(); 
 	FVector RelativeVector = TargetActor->GetActorLocation() - PlayerPosition;
-	FString name = TargetActor->GetName();
+	FString name = TargetActor->GetActorLabel();
 	float Distance = RelativeVector.Size(); // Get magnitude of vector
 	UE_LOG(LogTemp, Log, TEXT("Distances: %.2f | %s"), Distance, *name);
 
@@ -199,7 +209,7 @@ void AprojectGameMode::GetPlayerRelativity(const AActor* TargetActor)
 
 		FString Result = FString::Printf(TEXT(
 			"{ \"TargetObject\": \"%s\", \"Distance\": %.2f, \"Relative Position\": \"%s\" }"),
-			*TargetActor->GetName(),
+			*TargetActor->GetActorLabel(),
 			Distance,
 			*Payload);
 		UE_LOG(LogTemp, Log, TEXT("Relativity Data: %s"), *Result);
