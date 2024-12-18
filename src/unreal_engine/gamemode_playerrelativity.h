@@ -23,7 +23,7 @@ public:
 	void SendPayload(const FString& Payload);
 	FString DetermineQuadrant(const FVector& RelativeVector);
 	float CalculateAngle(const FVector& RelativeVector);
-	FString GetRelativePosition(const float& ForwardDot, const float& RightDot);
+	FString GetRelativePosition(const float& ForwardDot, const float& RightDot, const float& VerticalDot);
 
 	//void SendPayload(FString Payload);
 
@@ -39,6 +39,10 @@ public:
 
 	UHttpHandler_Get* HttpHandler;
 	void httpSendReq(FString *PayloadJson);
+
+	// Example variable for Blueprint access
+	UPROPERTY(BlueprintReadWrite, Category = "CustomLogic")
+	int32 Score;
 
 
 protected:
