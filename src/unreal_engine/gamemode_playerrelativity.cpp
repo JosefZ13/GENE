@@ -43,6 +43,7 @@ AprojectGameMode::AprojectGameMode()
 void AprojectGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+	UE_LOG(LogTemp, Warning, TEXT("GAMEMODE TRIGGERED."));
 
 	FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt"); 
 	if (FFileHelper::SaveStringToFile(TEXT(""), *FilePath)) 
@@ -57,7 +58,6 @@ void AprojectGameMode::BeginPlay()
 	PrimaryActorTick.bCanEverTick = true; 
 	GetActors();
 	TickForGetWorld();
-
 }
 
 void AprojectGameMode::TickForGetWorld()
@@ -68,7 +68,7 @@ void AprojectGameMode::TickForGetWorld()
 			TimerHandle,                       // Timer Handle
 			this,                              // Object that owns the function
 			&AprojectGameMode::PerformTracking,    // Function to call
-			5.0f,                              // Delay (seconds)
+			3.0f,                              // Delay (seconds)
 			true                               // Loop? (true = repeat every 5 seconds)
 		);
 	}
@@ -136,16 +136,17 @@ void AprojectGameMode::PerformTracking() {
 		if (Object.IsPlayer && Object.Actor)
 		{
 			PlayerPosition = Object.Actor->GetActorLocation();
-			
+			UE_LOG(LogTemp, Log, TEXT("PLAYER LOCATION: %s"), *PlayerPosition.ToString());
 			break;
 		}
 	}
 	// looping for all Actors
 	for (FTrackedObject& TrackedObject : TrackedObjects)
 	{
-		if (TrackedObject.Actor && IsValid(TrackedObject.Actor))
+		if (TrackedObject.Actor && IsValid(TrackedObject.Actor) && !TrackedObject.Actor->IsA(ACharacter::StaticClass()) && !TrackedObject.Actor->IsA(APlayerCameraManager::StaticClass()))
 		{
 			FVector CurrentPosition = TrackedObject.Actor->GetActorLocation();
+			UE_LOG(LogTemp, Log, TEXT("ACTOR LOCATION: %s"), *CurrentPosition.ToString());
 
 			if (!CurrentPosition.Equals(TrackedObject.PreviousPosition, KINDA_SMALL_NUMBER))
 			{
@@ -157,13 +158,14 @@ void AprojectGameMode::PerformTracking() {
 }
 void AprojectGameMode::SendPayload(const FString& Payload)
 {
+	UE_LOG(LogTemp, Log, TEXT("SEND PAYLOAD FUNCTION TRIGGERED"));
 	if (UWorld* World = GetWorld())
 	{
 		HttpHandler = CreateWidget<UHttpHandler_Get>(World, UHttpHandler_Get::StaticClass());
 		if (HttpHandler)
 		{
 			HttpHandler->AddToViewport();
-
+			UE_LOG(LogTemp, Log, TEXT("INSIDE SENDPAYLOAD BLOCK"));
 			HttpHandler->httpSendReq(Payload);
 
 		}
@@ -182,6 +184,7 @@ void AprojectGameMode::GetPlayerRelativity(const AActor* TargetActor)
 	FVector PlayerPosition = FVector::ZeroVector;
 	FVector PlayerForward = FVector::ZeroVector;
 	FVector PlayerRight = FVector::ZeroVector;
+	FVector PlayerUp = FVector::UpVector; 
 
 	for (const FTrackedObject& Object : TrackedObjects)
 	{
@@ -196,15 +199,23 @@ void AprojectGameMode::GetPlayerRelativity(const AActor* TargetActor)
 	FVector ActorLocation = TargetActor->GetActorLocation(); 
 	FVector RelativeVector = TargetActor->GetActorLocation() - PlayerPosition;
 	FString name = TargetActor->GetActorLabel();
-	float Distance = RelativeVector.Size(); // Get magnitude of vector
+	float Distance = RelativeVector.Size();
 	UE_LOG(LogTemp, Log, TEXT("Distances: %.2f | %s"), Distance, *name);
 
-	float ForwardDot = FVector::DotProduct(PlayerForward, RelativeVector);
-	float RightDot = FVector::DotProduct(PlayerRight, RelativeVector);
+	FVector NormalizedRelativeVector = RelativeVector.GetSafeNormal();
+
+	// playerforward and playerright are already normalized
+	float ForwardDot = FVector::DotProduct(PlayerForward, NormalizedRelativeVector);
+	float RightDot = FVector::DotProduct(PlayerRight, NormalizedRelativeVector);
+	float VerticalDot = FVector::DotProduct(PlayerUp, NormalizedRelativeVector);
+
+	UE_LOG(LogTemp, Log, TEXT("Normalized Vector Forward: %.2f"), ForwardDot);
+	UE_LOG(LogTemp, Log, TEXT("Normalized Vector Right: %.2f"), RightDot);
+	UE_LOG(LogTemp, Log, TEXT("Normalized Vector Vertical: %.2f"), VerticalDot);
 
 	if (Distance < 800)
 	{
-		FString Payload = GetRelativePosition(ForwardDot, RightDot);
+		FString Payload = GetRelativePosition(ForwardDot, RightDot, VerticalDot);
 		UE_LOG(LogTemp, Log, TEXT("Relativity Data: %s"), *Payload);
 
 		FString Result = FString::Printf(TEXT(
@@ -242,32 +253,97 @@ float AprojectGameMode::CalculateAngle(const FVector& RelativeVector)
 	return FMath::Atan2(RelativeVector.Y, RelativeVector.X) * (180.f / PI);
 }
 
-FString AprojectGameMode::GetRelativePosition(const float& ForwardDot, const float& RightDot)
+FString AprojectGameMode::GetRelativePosition(const float& ForwardDot, const float& RightDot, const float& VerticalDot)
 {
-	if (ForwardDot > 0) // front of player
+	FString Position;
+
+	const float VerticalThreshold = 0.8f;
+	const float HorizontalThreshold = 0.8f; 
+
+	// Cases for when object is directly to any direction:
+	if (VerticalDot > VerticalThreshold)
 	{
-		if (RightDot > 0)
+		Position = TEXT("directly above the player");
+	}
+	else if (VerticalDot < -VerticalThreshold)
+	{
+		Position = TEXT("directly below the player");
+	}
+
+	else if (RightDot > HorizontalThreshold)
+	{
+		Position = TEXT("directly to the right of the player");
+	}
+	else if (RightDot < -HorizontalThreshold)
+	{
+		Position = TEXT("directly to the left of the player");
+	}
+
+	else if (ForwardDot > HorizontalThreshold)
+	{
+		Position = TEXT("directly in front of the player");
+	}
+	else if (ForwardDot < -HorizontalThreshold)
+	{
+		Position = TEXT("directly behind the player");
+	}
+	else
+	{
+		// cases when its not in a direct direction
+		if (ForwardDot > 0)
 		{
-			UE_LOG(LogTemp, Log, TEXT("Actor is in front-right of the player."));
-			return FString(TEXT("Actor is in front-right of the player."));
+			if (RightDot > 0)
+			{
+				if (VerticalDot > 0)
+				{
+					Position = TEXT("in front-right-above the player");
+				}
+				else
+				{
+					Position = TEXT("in front-right-below the player");
+				}
+			}
+			else 
+			{
+				if (VerticalDot > 0) 
+				{
+					Position = TEXT("in front-left-above the player");
+				}
+				else
+				{
+					Position = TEXT("in front-left-below the player");
+				}
+			}
 		}
-		else
+		else 
 		{
-			UE_LOG(LogTemp, Log, TEXT("Actor is in front-left of the player."));
-			return FString(TEXT("Actor is in front-left of the player"));
+			if (RightDot > 0) 
+			{
+				if (VerticalDot > 0) 
+				{
+					Position = TEXT("behind-right-above the player");
+				}
+				else
+				{
+					Position = TEXT("behind-right-below the player");
+				}
+			}
+			else 
+			{
+				if (VerticalDot > 0)
+				{
+					Position = TEXT("behind-left-above the player");
+				}
+				else 
+				{
+					Position = TEXT("behind-left-below the player");
+				}
+			}
 		}
 	}
-	else // behind player
-	{
-		if (RightDot > 0)
-		{
-			UE_LOG(LogTemp, Log, TEXT("Actor is behind-right of the player."));
-			return FString(TEXT("Actor is behind-right of the player."));
-		}
-		else
-		{
-			UE_LOG(LogTemp, Log, TEXT("Actor is behind-left of the player."));
-			return FString(TEXT("Actor is behind-left of the player."));
-		}
-	}
+
+	UE_LOG(LogTemp, Log, TEXT("Actor is %s."), *Position);
+
+	return FString::Printf(TEXT("Actor is %s."), *Position);
+
 }
