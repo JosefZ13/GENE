@@ -20,8 +20,19 @@ public:
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	void ResponseFileRead();
-	FString LLM_Response;
+	void UpdateTextBlocks();
+	void ProcessNewResponse(const FString& NewResponse);
+	FString prevResponse;
+	FString newResponse;
+	TQueue<FString> ResponseQueue;
+	TArray<class UTextBlock*> GameStateTexts;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
-	class UTextBlock* GameStateText;
+	class UTextBlock* GameStateText_0;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
+	class UTextBlock* GameStateText_1;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
+	class UTextBlock* GameStateText_2;
 };
