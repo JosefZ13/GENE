@@ -77,47 +77,36 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
             {
                 UE_LOG(LogTemp, Warning, TEXT("'choices' array found with %d elements."), ChoicesArray->Num());
          
-                // Access the first element of the "choices" array
-                TSharedPtr<FJsonValue> ChoiceValue = (*ChoicesArray)[0];  // Access the first element
+                TSharedPtr<FJsonValue> ChoiceValue = (*ChoicesArray)[0];  
                 if (ChoiceValue.IsValid())
                 {
-                    TSharedPtr<FJsonObject> ChoiceObject = ChoiceValue->AsObject();  // Convert it to a JsonObject
+                    TSharedPtr<FJsonObject> ChoiceObject = ChoiceValue->AsObject(); 
                     if (ChoiceObject.IsValid())
                     {
                         FString AIResponse;
                         if (ChoiceObject->TryGetStringField(TEXT("text"), AIResponse))
                         {
-                            UE_LOG(LogTemp, Warning, TEXT("AI response: %s"), *AIResponse);
+                            if (AIResponse != "")
+                            {
+                                UE_LOG(LogTemp, Warning, TEXT("AI response: %s"), *AIResponse);
 
-                            FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt");
-                            FString FileContent = *AIResponse;
-                            UE_LOG(LogTemp, Warning, TEXT("FilePath: %s"), *FilePath);
-                            
-                            if (FFileHelper::SaveStringToFile(FileContent, *FilePath))
-                            {
-                                UE_LOG(LogTemp, Log, TEXT("File written successfully to: %s"), *FilePath);
+                                FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt");
+                                //FString FileContent = *AIResponse;
+                                UE_LOG(LogTemp, Warning, TEXT("FilePath: %s"), *FilePath);
+
+                                FString FileContent = TrimResponse(*AIResponse);
+                                UE_LOG(LogTemp, Log, TEXT("RESPONSE IS: %s"), *FileContent);
+
+                                if (FFileHelper::SaveStringToFile(FileContent, *FilePath))
+                                {
+                                    UE_LOG(LogTemp, Log, TEXT("File written successfully to: %s"), *FilePath);
+                                }
+                                else
+                                {
+                                    UE_LOG(LogTemp, Error, TEXT("Failed to write to file: %s"), *FilePath);
+                                }
                             }
-                            else
-                            {
-                                UE_LOG(LogTemp, Error, TEXT("Failed to write to file: %s"), *FilePath);
-                            }
-                            
-                            // Update the text block with the response
-                            /*
-                            if (GameStateText)
-                            {
-                                AsyncTask(ENamedThreads::GameThread, [this, AIResponse]()
-                                    {
-                                        GameStateText->SetText(FText::FromString(AIResponse));
-                                        UE_LOG(LogTemp, Warning, TEXT("GameStateText updated successfully."));
-                                    });
-                            }
-                            else
-                            {
-                                UE_LOG(LogTemp, Error, TEXT("GameStateText is null."));
-                            }
-                            */
-                            return; // Successfully processed
+                            return;
                         }
                         else
                         {
@@ -148,15 +137,22 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
     {
         UE_LOG(LogTemp, Error, TEXT("HTTP request failed or response is invalid."));
     }
+}
 
-    // Fallback: Handle errors and update UI with a failure message
-    if (GameStateText)
+FString UHttpHandler_Get::TrimResponse(const FString& InputString)
+{
+    FString Result = InputString;
+
+   
+    while (Result.StartsWith(TEXT("\n\n")))
     {
-        GameStateText->SetText(FText::FromString(TEXT("Failed to fetch or parse game state.")));
-        UE_LOG(LogTemp, Warning, TEXT("Fallback: Displayed failure message in GameStateText."));
+        Result = Result.RightChop(2); 
     }
-    else
+
+    while (Result.EndsWith(TEXT("\n\n")))
     {
-        UE_LOG(LogTemp, Error, TEXT("GameStateText is null in fallback."));
+        Result = Result.LeftChop(2);
     }
+
+    return Result;
 }
