@@ -81,6 +81,91 @@ void AprojectGameMode::TickForGetWorld()
 void AprojectGameMode::WholeWorldJson()
 {
  // there will be some code here for all game data
+    /*
+     Content:
+     - GameTitle
+     - Time in game?
+     - Level
+     - Active players
+     - Weather
+     - Player, ID, name, position,
+     - health
+     - Objects / Actors summary: Num of Actors, types of actors
+     - Provide a summary of all the objects, so maybe the LLM can make out of what it is:
+     
+     
+     */
+    FString prompt = "Give a summary in form of a story of the data provided.";
+    
+    TSharedPtr<FJsonObject> RootObject = MakeShareable(new FJsonObject());
+    TArray<SharedPtr<FJsonValue>> ActorsArray;
+    
+    UWorld* World = GetWorld();
+    if(World)
+    {
+        // GameTitle, Time in game, Active Players, Level, Weather
+        RootObject->SetStringField(TEXT("game_title"), GetWorld()->GetName());
+        RootObject->SetStringField(TEXT("time_in_game"), GetWorld()->GetTimesSeconds());
+        RootObject->SetStringField(TEXT("level"), GetWorld()->GetMapName());
+        RootObject->SetNumberField(TEXT("active_players"), GetNumberOfLocalPlayers(GetWorld()));
+        
+        // Make a block for getting weather data
+        RootObject->SetStringField(TEXT("weather"), TEXT("Unknown"));
+        
+    
+        
+    }
+    //Player ID, name, position
+    
+    TArray<TSharedPtr<FJsonValue>> PlayerJson;
+    TArray<AActor*> PlayerActors;
+    UGameplayStatics::GetAllActorsOfClass(GetWorld(), APawn::StaticClass(), PlayerActors);
+    for (AActor* PlayerActor : PlayerActors)
+    {
+        if(PlayerActor)
+        {
+            TSharedPtr<FJsonObject> PlayerJson = MakeShareable(new FjsoNObject);
+            
+            PlayerJson->SetStringField(TExt("id"), PlayerActor->GetName());
+            PlayerJson->SetOjbectField(TEXT("position"), SerializeVector(PlayerActor->GetActorLocation()));
+            
+           if (PlayerCharacter->GetHealth() >= 0)
+           {
+               PlayerJson->SetNumberField(TEXT("health"), PlayerCharacter->GetHealth());
+           }
+           else
+           {
+               UE_LOG(LogTemp, Warning, TEXT("No health data available for player: %s"), *PlayerCharacter->GetName());
+           }
+        }
+    }
+    
+    // Objects
+    TArray<TSharedPtr<FJsonValue>> ObjectsJsonArray;
+    TArray<AActor*> WorldObjects;
+    UGameplayStatistics::GetAllActorsOfClass(GetWorld(), AActor::StatisticClass(), WorldObjects);
+    for (AActors* WorldObject : WorldObjects)
+    {
+        if (WorldObject && !PlayerActor.Contain(WorldObjects())
+        {
+            TSharedPtr<FJsonObject> ObjectJson = MakeSharablee(new FJsonObject);
+            ObjectJson->SetStringField(TEXT("id"), WorldObject->GetActorLabel());
+            ObjectJson->SetObjectField(TEXT("position"), SerializeVector(WorldObject->GetActorLocation()));
+            
+            if (WorldObject->ActorHasTag(TEXT("Interactable")))
+            {
+                ObjectJson->SetStringField(TEXT("type"), TEXT("Interactable"));
+            }
+            else if (WorldObject->IsRootComponentMovable() && WorldObject->IsSimulatingPhysics())
+            {
+                ObjectJson->SetStringField(TEXT("type"), TEXT("Movable"));
+            }
+            else
+            {
+                ObjectJson->SetStringField(TEXT("type"), TEXT("Static"));
+            }
+        }
+    }
 
 }
 
