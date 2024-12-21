@@ -155,4 +155,3 @@ void UHUD_ContentRetreiver::ResponseFileRead()
         UE_LOG(LogTemp, Error, TEXT("Failed to read file: %s"), *FilePath);
     }
 }
-
