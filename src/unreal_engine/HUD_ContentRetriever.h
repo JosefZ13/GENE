@@ -22,10 +22,16 @@ public:
 	void ResponseFileRead();
 	void UpdateTextBlocks();
 	void ProcessNewResponse(const FString& NewResponse);
+	void UpdateBorderVisibility();
+	void TriggerFadeOut();
+
 	FString prevResponse;
 	FString newResponse;
-	TQueue<FString> ResponseQueue;
-	TArray<class UTextBlock*> GameStateTexts;
+	float TimeSinceLastBorderUpdate = 0.0f;
+	TArray<bool> BordersChanged;
+
+	//TQueue<FString> ResponseQueue;
+	//TArray<class UTextBlock*> GameStateTexts;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
 	class UTextBlock* GameStateText_0;
@@ -35,4 +41,16 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
 	class UTextBlock* GameStateText_2;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
+	class UBorder* GameStateBorder_0;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
+	class UBorder* GameStateBorder_1;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
+	class UBorder* GameStateBorder_2;
+
+	UPROPERTY(BlueprintReadOnly, Transient, meta = (BindWidgetAnim))
+	UWidgetAnimation* FadeOutAnimation;
 };
