@@ -18,11 +18,13 @@ class PROJECT_API UHttpHandler_Get : public UUserWidget
 
 public:
 	virtual void NativeConstruct() override;
-	void httpSendReq(FString Payload);
-	//void FetchGameState();
+	void httpSendReq(FString Payload, FString question);
+	FString LLM_repsonse;
+	FString TrimResponse(const FString& InputString);
 
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
 	class UTextBlock* GameStateText;
+
 
 private:
 	void OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
