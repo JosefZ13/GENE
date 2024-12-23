@@ -6,9 +6,11 @@
 #include "Dom/JsonObject.h"
 #include "Components/TextBlock.h"
 #include "Containers/Queue.h"
+#include "Components/Border.h"
 #include "Serialization/JsonReader.h"
 
-float TimeSinceLastRead = 0.0f;
+float TimeSinceLastRead_1 = 0.0f;
+float TimeSinceLastRead_2 = 0.0f;
 
 void UHUD_ContentRetreiver::NativeConstruct()
 {
@@ -21,6 +23,9 @@ void UHUD_ContentRetreiver::NativeConstruct()
         UE_LOG(LogTemp, Error, TEXT("One or more GameStateText widgets are not properly bound."));
     }
 
+    if (GameStateBorder_0) GameStateBorder_0->SetVisibility(ESlateVisibility::Collapsed);
+    if (GameStateBorder_1) GameStateBorder_1->SetVisibility(ESlateVisibility::Collapsed);
+    if (GameStateBorder_2) GameStateBorder_2->SetVisibility(ESlateVisibility::Collapsed);
 }
 
 
@@ -28,12 +33,13 @@ void UHUD_ContentRetreiver::NativeTick(const FGeometry& MyGeometry, float InDelt
 {
 
     Super::NativeTick(MyGeometry, InDeltaTime);
-    TimeSinceLastRead += InDeltaTime;
+    TimeSinceLastRead_1 += InDeltaTime;
+    TimeSinceLastRead_2 += InDeltaTime;
 
 
-    if (TimeSinceLastRead >= 4.0f)
+    if (TimeSinceLastRead_1 >= 4.0f)
     {
-        FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt");
+        FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/Actor_LLM_response.txt");
         FString NewResponse;
 
         if (FFileHelper::LoadFileToString(NewResponse, *FilePath))
@@ -43,6 +49,7 @@ void UHUD_ContentRetreiver::NativeTick(const FGeometry& MyGeometry, float InDelt
                 {
                     ProcessNewResponse(NewResponse);
                     prevResponse = NewResponse;
+                    UpdateBorderVisibility(); 
                 }
             }
             else if (!NewResponse.IsEmpty() && NewResponse == prevResponse)
@@ -50,9 +57,31 @@ void UHUD_ContentRetreiver::NativeTick(const FGeometry& MyGeometry, float InDelt
                 UE_LOG(LogTemp, Log, TEXT("No new response. Skipping update."));
             }
         }
-        TimeSinceLastRead = 0.0f;
+        TimeSinceLastRead_1 = 0.0f;
+    }
+    if (TimeSinceLastRead_2 >= 4.0f)
+    {
+        FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/Whole_LLM_response.txt");
+        FString NewWholeResponse;
+
+        if (FFileHelper::LoadFileToString(NewWholeResponse, *FilePath))
+        {
+            if (NewWholeResponse != prevWholeResponse)
+            {
+                {
+                    WholeGameStateText->SetText(FText::FromString(NewWholeResponse));
+                    //UpdateBorderVisibility();
+                }
+            }
+            else if (!NewWholeResponse.IsEmpty() && NewWholeResponse == prevWholeResponse)
+            {
+                UE_LOG(LogTemp, Log, TEXT("No new response. Skipping update."));
+            }
+        }
+        TimeSinceLastRead_2 = 20.0f;
     }
 }
+
 
 void UHUD_ContentRetreiver::ProcessNewResponse(const FString& NewResponse)
 {
@@ -60,12 +89,12 @@ void UHUD_ContentRetreiver::ProcessNewResponse(const FString& NewResponse)
 
     AsyncTask(ENamedThreads::GameThread, [this]()
         {
-            UpdateTextBlocks();
+            UpdateGameStateText();
         });
 }
 
 
-void UHUD_ContentRetreiver::UpdateTextBlocks()
+void UHUD_ContentRetreiver::UpdateGameStateText()
 {
     if (ResponseQueue.IsEmpty())
     {
@@ -94,64 +123,24 @@ void UHUD_ContentRetreiver::UpdateTextBlocks()
         UE_LOG(LogTemp, Log, TEXT("GameStateText widgets updated successfully."));
     }
 }
-/*
-void UHUD_ContentRetreiver::ResponseFileRead()
+void UHUD_ContentRetreiver::UpdateBorderVisibility()
 {
-    FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt");
-    UE_LOG(LogTemp, Log, TEXT("FILEPATH:\n%s"), *FilePath);
+    TArray<UTextBlock*> TextBlocks = { GameStateText_0, GameStateText_1, GameStateText_2 };
+    TArray<UBorder*> Borders = { GameStateBorder_0, GameStateBorder_1, GameStateBorder_2 };
 
-
-    if (FFileHelper::LoadFileToString(newResponse, *FilePath))
+    for (int32 i = 0; i < TextBlocks.Num(); i++)
     {
-        if (newResponse != prevResponse)
+        if (TextBlocks[i] && Borders[i])
         {
-            UE_LOG(LogTemp, Log, TEXT("TEST !:\n"));
-            UE_LOG(LogTemp, Log, TEXT("File read successfully! Content:\n%s"), *newResponse);
-
-            ResponseQueue.Enqueue(newResponse);
-
-            if (GameStateText_2 && GameStateText_1 && GameStateText_0)
+            const FString TextContent = TextBlocks[i]->GetText().ToString();
+            if (TextContent.IsEmpty())
             {
-                AsyncTask(ENamedThreads::GameThread, [this, ResponseCopy = newResponse]()
-                    {
-                        FString Retrieved;
-                        if (ResponseQueue.Dequeue(Retrieved))
-                        {
-                            
-                            if (GameStateText_1 && GameStateText_0)
-                            {
-                                GameStateText_0->SetText(GameStateText_1->GetText());
-                            }
-
-                            if (GameStateText_2 && GameStateText_1)
-                            {
-                                GameStateText_1->SetText(GameStateText_2->GetText());
-                            }
-
-                            if (GameStateText_2)
-                            {
-                                GameStateText_2->SetText(FText::FromString(Retrieved));
-                            }
-                            else
-                            {
-                                UE_LOG(LogTemp, Warning, TEXT("Queue is empty."));
-                            }
-                        }
-                        else
-                        {
-                            UE_LOG(LogTemp, Warning, TEXT("Queue is empty."));
-                        }
-                        UE_LOG(LogTemp, Warning, TEXT("GameStateText updated successfully."));
-                    });
+                Borders[i]->SetVisibility(ESlateVisibility::Collapsed);
             }
             else
             {
-                UE_LOG(LogTemp, Error, TEXT("GameStateText is null."));
+                Borders[i]->SetVisibility(ESlateVisibility::Visible);
             }
         }
-    }
-    else
-    {
-        UE_LOG(LogTemp, Error, TEXT("Failed to read file: %s"), *FilePath);
     }
 }
