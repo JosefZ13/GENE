@@ -27,12 +27,10 @@ void UHttpHandler_Get::NativeConstruct()
     }
 }
 
-void UHttpHandler_Get::httpSendReq(FString Payload)
+void UHttpHandler_Get::httpSendReq(FString Payload, FString question)
 {
     FHttpModule* Http = &FHttpModule::Get();
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http->CreateRequest();
-
-    FString question = FString::Printf(TEXT("Tell the ObjectName, its distance and the relative position that is mentioned in the provided data. If you have provided the information, stop telling me more.\n"));
 
     FString prompt = question + Payload;
 
