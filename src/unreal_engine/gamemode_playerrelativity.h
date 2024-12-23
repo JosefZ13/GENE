@@ -19,14 +19,13 @@ public:
 	void PerformTracking();
 	void TickForGetWorld();
 	void WholeWorldJson();
+	TSharedPtr<FJsonObject> SerializeVector(const FVector& Vector);
 	void GetPlayerRelativity(const AActor* TargetActor);
-	void SendPayload(const FString& Payload);
+	void SendPayload(const FString& Payload, const FString& indicator);
+	FString question_prompt(const FString& indicator);
 	FString DetermineQuadrant(const FVector& RelativeVector);
 	float CalculateAngle(const FVector& RelativeVector);
 	FString GetRelativePosition(const float& ForwardDot, const float& RightDot, const float& VerticalDot);
-
-	//void SendPayload(FString Payload);
-
 
 	struct FTrackedObject {
 		AActor* Actor;
@@ -49,4 +48,3 @@ protected:
     // beginplay is overriden when the functions above are called
     virtual void BeginPlay() override;
 };
-
