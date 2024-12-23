@@ -11,6 +11,7 @@
 #include "Camera/CameraComponent.h"
 #include "Engine/Texture.h"
 #include "Kismet/GameplayStatics.h"
+#include "Components/PrimitiveComponent.h"
 #include "HttpHandler_Get.h"
 
 /*
@@ -43,6 +44,7 @@ AprojectGameMode::AprojectGameMode()
 void AprojectGameMode::BeginPlay()
 {
 	Super::BeginPlay();
+	WholeWorldJson();
 	UE_LOG(LogTemp, Warning, TEXT("GAMEMODE TRIGGERED."));
 
 	FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt"); 
@@ -118,25 +120,28 @@ void AprojectGameMode::WholeWorldJson()
 	}
 	//Player ID, name, position
 
-	TArray<TSharedPtr<FJsonValue>> PlayerJson;
+	TArray<TSharedPtr<FJsonValue>> PlayerJsonArray; 
 	TArray<AActor*> PlayerActors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), APawn::StaticClass(), PlayerActors);
 	for (AActor* PlayerActor : PlayerActors)
 	{
-		if (PlayerActor)
+		if (APawn* Pawn = Cast<APawn>(PlayerActor))
 		{
-			TSharedPtr<FJsonObject> PlayerJson = MakeShareable(new FJsonObject);
-
-			PlayerJson->SetStringField(TEXT("id"), PlayerActor->GetName());
-			PlayerJson->SetObjectField(TEXT("position"), SerializeVector(PlayerActor->GetActorLocation()));
-
-			if (PlayerCharacter->GetHealth() >= 0)
+			if (Pawn->IsPlayerControlled())
 			{
-				PlayerJson->SetNumberField(TEXT("health"), PlayerCharacter->GetHealth());
+				TSharedPtr<FJsonObject> PlayerJson = MakeShareable(new FJsonObject);
+
+				PlayerJson->SetStringField(TEXT("id"), PlayerActor->GetName());
+				PlayerJson->SetObjectField(TEXT("position"), SerializeVector(Pawn->GetActorLocation())); 
+				PlayerJsonArray.Add(MakeShareable(new FJsonValueObject(PlayerJson))); 
 			}
 			else
 			{
-				UE_LOG(LogTemp, Warning, TEXT("No health data available for player: %s"), *PlayerCharacter->GetName());
+				TSharedPtr<FJsonObject> NPCJson = MakeShareable(new FJsonObject);
+
+				NPCJson->SetStringField(TEXT("id"), PlayerActor->GetName());
+				NPCJson->SetObjectField(TEXT("position"), SerializeVector(Pawn->GetActorLocation()));
+				PlayerJsonArray.Add(MakeShareable(new FJsonValueObject(NPCJson)));
 			}
 		}
 	}
@@ -146,27 +151,59 @@ void AprojectGameMode::WholeWorldJson()
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AActor::StaticClass(), WorldObjects);
 	for (AActor* WorldObject : WorldObjects)
 	{
-		if (WorldObject && !PlayerActor.Contain(WorldObjects())
+		if (WorldObject)
 		{
-			TSharedPtr<FJsonObject> ObjectJson = MakeSharablee(new FJsonObject);
-			ObjectJson->SetStringField(TEXT("id"), WorldObject->GetActorLabel());
-			ObjectJson->SetObjectField(TEXT("position"), SerializeVector(WorldObject->GetActorLocation()));
+			if (!WorldObject->IsA(APawn::StaticClass()))
+			{
+				TSharedPtr<FJsonObject> ObjectJson = MakeShareable(new FJsonObject);
+				ObjectJson->SetStringField(TEXT("id"), WorldObject->GetActorLabel());
+				ObjectJson->SetObjectField(TEXT("position"), SerializeVector(WorldObject->GetActorLocation()));
 
-			if (WorldObject->ActorHasTag(TEXT("Interactable")))
-			{
-				ObjectJson->SetStringField(TEXT("type"), TEXT("Interactable"));
-			}
-			else if (WorldObject->IsRootComponentMovable() && WorldObject->IsSimulatingPhysics())
-			{
-				ObjectJson->SetStringField(TEXT("type"), TEXT("Movable"));
-			}
-			else
-			{
-				ObjectJson->SetStringField(TEXT("type"), TEXT("Static"));
+				if (WorldObject->ActorHasTag(TEXT("Interactable")))
+				{
+					ObjectJson->SetStringField(TEXT("type"), TEXT("Interactable"));
+				}
+				else
+				{
+					UPrimitiveComponent* RootComp = Cast<UPrimitiveComponent>(WorldObject->GetRootComponent());
+					if (RootComp && RootComp->IsSimulatingPhysics())
+					{
+						ObjectJson->SetStringField(TEXT("type"), TEXT("Movable"));
+					}
+					else
+					{
+						ObjectJson->SetStringField(TEXT("type"), TEXT("Static"));
+					}
+				}
+				ObjectsJsonArray.Add(MakeShareable(new FJsonValueObject(ObjectJson)));
+
 			}
 		}
 	}
+	if (PlayerJsonArray.Num() > 0)
+	{
+		RootObject->SetArrayField(TEXT("Players"), PlayerJsonArray);
+	}
+
+	if (ObjectsJsonArray.Num() > 0)
+	{
+		RootObject->SetArrayField(TEXT("Objects"), ObjectsJsonArray);
+	}
+
+	FString WholeWorldJson;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&WholeWorldJson);
+	FJsonSerializer::Serialize(RootObject.ToSharedRef(), Writer);
+	UE_LOG(LogTemp, Log, TEXT("Generated JSON: %s"), *WholeWorldJson);
 	
+}
+
+TSharedPtr<FJsonObject> AprojectGameMode::SerializeVector(const FVector& Vector)
+{
+	TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
+	JsonObject->SetNumberField(TEXT("x"), Vector.X);
+	JsonObject->SetNumberField(TEXT("y"), Vector.Y);
+	JsonObject->SetNumberField(TEXT("z"), Vector.Z);
+	return JsonObject;
 }
 
 void AprojectGameMode::GetActors() {
@@ -241,8 +278,9 @@ void AprojectGameMode::PerformTracking() {
 		}
 	}
 }
-void AprojectGameMode::SendPayload(const FString& Payload)
+void AprojectGameMode::SendPayload(const FString& Payload, const FString& indicator)
 {
+	FString question = question_prompt(indicator);
 	UE_LOG(LogTemp, Log, TEXT("SEND PAYLOAD FUNCTION TRIGGERED"));
 	if (UWorld* World = GetWorld())
 	{
@@ -251,7 +289,7 @@ void AprojectGameMode::SendPayload(const FString& Payload)
 		{
 			HttpHandler->AddToViewport();
 			UE_LOG(LogTemp, Log, TEXT("INSIDE SENDPAYLOAD BLOCK"));
-			HttpHandler->httpSendReq(Payload);
+			HttpHandler->httpSendReq(Payload, question);
 
 		}
 		else
@@ -311,7 +349,9 @@ void AprojectGameMode::GetPlayerRelativity(const AActor* TargetActor)
 		UE_LOG(LogTemp, Log, TEXT("Relativity Data: %s"), *Result);
 
 		DrawDebugLine(GetWorld(), PlayerPosition, ActorLocation, FColor::Green, false, 5.0f, 0, 5.0f);
-		SendPayload(Result);
+
+		FString indicator = "ActorMovement";
+		SendPayload(Result, indicator);
 	}
 	else
 	{
@@ -431,4 +471,20 @@ FString AprojectGameMode::GetRelativePosition(const float& ForwardDot, const flo
 
 	return FString::Printf(TEXT("Actor is %s."), *Position);
 
+}
+
+FString AprojectGameMode::question_prompt(const FString& indicator)
+{
+	if (indicator == "ActorMovement")
+	{
+		return TEXT("Tell the ObjectName, its distance and the relative position that is mentioned in the provided data.\n");
+	}
+	else if (indicator == "WholeJson")
+	{
+		return TEXT("Tell the Game Title, weather, number of players, and number of objects from the provided data.\n");
+	}
+	else
+	{
+		return TEXT("Tell me about the privided data.\n");
+	}
 }
