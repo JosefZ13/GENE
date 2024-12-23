@@ -27,7 +27,7 @@ void UHttpHandler_Get::NativeConstruct()
     }
 }
 
-void UHttpHandler_Get::httpSendReq(FString Payload, FString question)
+void UHttpHandler_Get::httpSendReq(FString Payload, FString question, FString context)
 {
     FHttpModule* Http = &FHttpModule::Get();
     TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http->CreateRequest();
@@ -46,7 +46,7 @@ void UHttpHandler_Get::httpSendReq(FString Payload, FString question)
     Request->SetHeader(TEXT("Content-Type"), TEXT("application/json; charset=utf-8"));
 
     Request->SetContentAsString(SerializedPayload);
-    Request->OnProcessRequestComplete().BindUObject(this, &UHttpHandler_Get::OnResponseReceived);
+    Request->OnProcessRequestComplete().BindUObject(this, &UHttpHandler_Get::OnResponseReceived, context);
     if (Request->ProcessRequest())
     {
         UE_LOG(LogTemp, Log, TEXT("Payload sent: %s"), *SerializedPayload);
@@ -57,7 +57,7 @@ void UHttpHandler_Get::httpSendReq(FString Payload, FString question)
     }
 }
 
-void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
+void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful, FString context)
 {
     if (bWasSuccessful && Response.IsValid())
     {
@@ -88,11 +88,22 @@ void UHttpHandler_Get::OnResponseReceived(FHttpRequestPtr Request, FHttpResponse
                             {
                                 UE_LOG(LogTemp, Warning, TEXT("AI response: %s"), *AIResponse);
 
-                                FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt");
-                                //FString FileContent = *AIResponse;
-                                UE_LOG(LogTemp, Warning, TEXT("FilePath: %s"), *FilePath);
-
                                 FString FileContent = TrimResponse(*AIResponse);
+                                FString FilePath;
+
+                                if (context == "WholeGameState")
+                                {
+                                    FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/Whole_LLM_response.txt");
+                                }
+                                else if (context == "Actor_Relocation")
+                                {
+                                    FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/Actor_LLM_response.txt");
+                                }
+                                else
+                                {
+                                    FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/DefaultResponse.txt"); 
+                                }
+
                                 UE_LOG(LogTemp, Log, TEXT("RESPONSE IS: %s"), *FileContent);
 
                                 if (FFileHelper::SaveStringToFile(FileContent, *FilePath))
