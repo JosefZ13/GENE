@@ -14,6 +14,8 @@
 #include "Components/PrimitiveComponent.h"
 #include "HttpHandler_Get.h"
 
+bool generate_stories = true;
+
 /*
 
 Track player and all actors. Store actor and player data in a struct object.
@@ -110,13 +112,9 @@ void AprojectGameMode::WholeWorldJson()
 		RootObject->SetStringField(TEXT("game_title"), GetWorld()->GetName());
 		RootObject->SetStringField(TEXT("time_in_game"), FString::SanitizeFloat(GetWorld()->GetTimeSeconds()));
 		RootObject->SetStringField(TEXT("level"), GetWorld()->GetMapName());
-		//RootObject->SetNumberField(TEXT("active_players"), GetNumberOfLocalPlayers(GetWorld()));
 
 		// Make a block for getting weather data
-		RootObject->SetStringField(TEXT("weather"), TEXT("Unknown"));
-
-
-
+		// RootObject->SetStringField(TEXT("weather"), TEXT("Unknown"));
 	}
 	//Player ID, name, position
 
@@ -194,6 +192,19 @@ void AprojectGameMode::WholeWorldJson()
 	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&WholeWorldJson);
 	FJsonSerializer::Serialize(RootObject.ToSharedRef(), Writer);
 	UE_LOG(LogTemp, Log, TEXT("Generated JSON: %s"), *WholeWorldJson);
+
+	FString context = "WholeGameState";
+
+	if (generate_stories == false)
+	{
+		FString indicator = "ActorMovement";
+		SendPayload(WholeWorldJson, indicator, context);
+	}
+	if (generate_stories == true)
+	{
+		FString indicator = "StoryActorMovement";
+		SendPayload(WholeWorldJson, indicator, context);
+	}
 	
 }
 
@@ -278,7 +289,7 @@ void AprojectGameMode::PerformTracking() {
 		}
 	}
 }
-void AprojectGameMode::SendPayload(const FString& Payload, const FString& indicator)
+void AprojectGameMode::SendPayload(const FString& Payload, const FString& indicator, const FString& context)
 {
 	FString question = question_prompt(indicator);
 	UE_LOG(LogTemp, Log, TEXT("SEND PAYLOAD FUNCTION TRIGGERED"));
@@ -289,7 +300,7 @@ void AprojectGameMode::SendPayload(const FString& Payload, const FString& indica
 		{
 			HttpHandler->AddToViewport();
 			UE_LOG(LogTemp, Log, TEXT("INSIDE SENDPAYLOAD BLOCK"));
-			HttpHandler->httpSendReq(Payload, question);
+			HttpHandler->httpSendReq(Payload, question, context);
 
 		}
 		else
@@ -350,8 +361,18 @@ void AprojectGameMode::GetPlayerRelativity(const AActor* TargetActor)
 
 		DrawDebugLine(GetWorld(), PlayerPosition, ActorLocation, FColor::Green, false, 5.0f, 0, 5.0f);
 
-		FString indicator = "ActorMovement";
-		SendPayload(Result, indicator);
+		if (generate_stories == false)
+		{
+			FString indicator = "ActorMovement";
+			FString Context = "Actor_Relocation";
+			SendPayload(Result, indicator, Context); 
+		}
+		if (generate_stories == true)
+		{
+			FString indicator = "StoryActorMovement";
+			FString Context = "Actor_Relocation"; 
+			SendPayload(Result, indicator, Context); 
+		}
 	}
 	else
 	{
@@ -477,14 +498,30 @@ FString AprojectGameMode::question_prompt(const FString& indicator)
 {
 	if (indicator == "ActorMovement")
 	{
-		return TEXT("Tell the ObjectName, its distance and the relative position that is mentioned in the provided data.\n");
+		return TEXT("Tell the ObjectName, its distance and the relative position that is mentioned in the provided data. Stop when you have said it. Do not answer with json like format. Answer in regular text. \n");
 	}
 	else if (indicator == "WholeJson")
 	{
-		return TEXT("Tell the Game Title, weather, number of players, and number of objects from the provided data.\n");
+		return TEXT("Tell the Game Title, weather, number of players, and number of objects from the provided data. Stop when you have said it. Do not answer with json like format. Answer in regular text.\n");
 	}
+	else if (indicator == "StoryActorMovement")
+	{
+		return TEXT("Write a short scene using the following details in 50 tokens or less.\n");
+	}
+
+	else if (indicator == "StoryWholeJson")
+	{
+		return TEXT("Write a short story using the following details without explaining your process.\n");
+	}  
 	else
 	{
-		return TEXT("Tell me about the privided data.\n");
+		if (indicator == "Story")
+		{
+			return TEXT("Generate a story based on the provided data. Stop when you have said it. Do not answer with json like format. Answer in regular text.\n");
+		}
+		else
+		{
+			return TEXT("Describe whats happening from the the provided data. Stop when you have said it. Do not answer with json like format. Answer in regular text.\n");
+		}
 	}
 }
