@@ -20,18 +20,21 @@ public:
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	void ResponseFileRead();
-	void UpdateTextBlocks();
+	void UpdateGameStateText();
 	void ProcessNewResponse(const FString& NewResponse);
 	void UpdateBorderVisibility();
 	void TriggerFadeOut();
+	void UpdateWholeGameStateText();
+	void wrapper_function();
 
 	FString prevResponse;
 	FString newResponse;
+	FString prevWholeResponse;
 	float TimeSinceLastBorderUpdate = 0.0f;
 	TArray<bool> BordersChanged;
 
-	//TQueue<FString> ResponseQueue;
-	//TArray<class UTextBlock*> GameStateTexts;
+	TQueue<FString> ResponseQueue;
+	TArray<class UTextBlock*> GameStateTexts;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
 	class UTextBlock* GameStateText_0;
@@ -43,6 +46,9 @@ public:
 	class UTextBlock* GameStateText_2;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
+	class UTextBlock* WholeGameStateText;
+
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
 	class UBorder* GameStateBorder_0;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
@@ -50,6 +56,9 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
 	class UBorder* GameStateBorder_2;
+	
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
+	class UBorder* WholeGameStateBorder;
 
 	UPROPERTY(BlueprintReadOnly, Transient, meta = (BindWidgetAnim))
 	UWidgetAnimation* FadeOutAnimation;
