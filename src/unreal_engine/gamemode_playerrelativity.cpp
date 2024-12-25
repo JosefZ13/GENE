@@ -46,10 +46,9 @@ AprojectGameMode::AprojectGameMode()
 void AprojectGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-	WholeWorldJson();
 	UE_LOG(LogTemp, Warning, TEXT("GAMEMODE TRIGGERED."));
 
-	FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/LLM_response.txt"); 
+	FString FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/Actor_LLM_response.txt"); 
 	if (FFileHelper::SaveStringToFile(TEXT(""), *FilePath)) 
 	{
 		UE_LOG(LogTemp, Log, TEXT("File content cleared successfully: %s"), *FilePath);
@@ -58,6 +57,17 @@ void AprojectGameMode::BeginPlay()
 	{
 		UE_LOG(LogTemp, Error, TEXT("Failed to clear file content: %s"), *FilePath);
 	}
+
+	FilePath = FPaths::ProjectDir() + TEXT("LLM_Response/Whole_LLM_response.txt");
+	if (FFileHelper::SaveStringToFile(TEXT(""), *FilePath))
+	{
+		UE_LOG(LogTemp, Log, TEXT("File content cleared successfully: %s"), *FilePath);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to clear file content: %s"), *FilePath);
+	}
+
 	WholeWorldJson();  
 	PrimaryActorTick.bCanEverTick = true; 
 	GetActors();
@@ -100,8 +110,6 @@ void AprojectGameMode::WholeWorldJson()
 
 		*/
 	
-	FString prompt = "Give a summary in form of a story of the data provided.";
-
 	TSharedPtr<FJsonObject> RootObject = MakeShareable(new FJsonObject());
 	TArray<TSharedPtr<FJsonValue>> ActorsArray;
 
@@ -218,6 +226,10 @@ TSharedPtr<FJsonObject> AprojectGameMode::SerializeVector(const FVector& Vector)
 }
 
 void AprojectGameMode::GetActors() {
+	
+	/*
+		This functions gets all Actors and Players in the world. Is called once at beginplay().
+	*/
 
 	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
 	if (PlayerPawn)
@@ -254,6 +266,8 @@ void AprojectGameMode::GetActors() {
 
 void AprojectGameMode::PerformTracking() {
 	/*
+	*  This function in called each 4 second to scan through the actors and players to see if their location has changed and update the location accordingly.
+	* 
 	This logic should understand movements relative to the player.
 	- Creates a Json-like string which is our payload.
 	- Logs every movement data in the gameworld
