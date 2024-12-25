@@ -2,7 +2,6 @@
 
 
 #include "HUD_ContentRetreiver.h"
-#include "LLMResponseRetriever.h"
 #include "Dom/JsonObject.h"
 #include "Components/TextBlock.h"
 #include "Containers/Queue.h"
@@ -26,6 +25,7 @@ void UHUD_ContentRetreiver::NativeConstruct()
     if (GameStateBorder_0) GameStateBorder_0->SetVisibility(ESlateVisibility::Collapsed);
     if (GameStateBorder_1) GameStateBorder_1->SetVisibility(ESlateVisibility::Collapsed);
     if (GameStateBorder_2) GameStateBorder_2->SetVisibility(ESlateVisibility::Collapsed);
+    if (WholeGameStateBorder) WholeGameStateBorder->SetVisibility(ESlateVisibility::Collapsed);
 }
 
 
@@ -44,15 +44,20 @@ void UHUD_ContentRetreiver::NativeTick(const FGeometry& MyGeometry, float InDelt
 
         if (FFileHelper::LoadFileToString(NewResponse, *FilePath))
         {
-            if (NewResponse != prevResponse)
+            UE_LOG(LogTemp, Log, TEXT("NEWResponse: %s"), *NewResponse);
+            FString CleanedResponse = CleanResponse(NewResponse);
+
+            UE_LOG(LogTemp, Log, TEXT("Cleared content: %s"), *CleanedResponse);
+            if (CleanedResponse != prevResponse)
             {
                 {
-                    ProcessNewResponse(NewResponse);
-                    prevResponse = NewResponse;
+                    ProcessNewResponse(CleanedResponse);
+                    prevResponse = CleanedResponse;
                     UpdateBorderVisibility(); 
+                    PlayAnimation(FadeOutAnimation);
                 }
             }
-            else if (!NewResponse.IsEmpty() && NewResponse == prevResponse)
+            else if (!CleanedResponse.IsEmpty() && CleanedResponse == prevResponse)
             {
                 UE_LOG(LogTemp, Log, TEXT("No new response. Skipping update."));
             }
@@ -66,14 +71,19 @@ void UHUD_ContentRetreiver::NativeTick(const FGeometry& MyGeometry, float InDelt
 
         if (FFileHelper::LoadFileToString(NewWholeResponse, *FilePath))
         {
-            if (NewWholeResponse != prevWholeResponse)
+
+            FString CleanedWholeResponse = CleanResponse(NewWholeResponse);
+
+            if (CleanedWholeResponse != prevWholeResponse)
             {
                 {
-                    WholeGameStateText->SetText(FText::FromString(NewWholeResponse));
+                    WholeGameStateText->SetText(FText::FromString(CleanedWholeResponse));
+                    prevWholeResponse = CleanedWholeResponse;
+                    PlayAnimation(FadeOutAnimation);
                     //UpdateBorderVisibility();
                 }
             }
-            else if (!NewWholeResponse.IsEmpty() && NewWholeResponse == prevWholeResponse)
+            else if (!CleanedWholeResponse.IsEmpty() && CleanedWholeResponse == prevWholeResponse)
             {
                 UE_LOG(LogTemp, Log, TEXT("No new response. Skipping update."));
             }
@@ -144,3 +154,48 @@ void UHUD_ContentRetreiver::UpdateBorderVisibility()
         }
     }
 }
+
+void UHUD_ContentRetreiver::UpdateWholeGameStateBorderVisibility()
+{
+    if (WholeGameStateText && WholeGameStateBorder)
+    {
+        const FString WholeTextContent = WholeGameStateText->GetText().ToString();
+
+        if (WholeTextContent.IsEmpty())
+        {
+            WholeGameStateBorder->SetVisibility(ESlateVisibility::Collapsed);
+        }
+        else
+        {
+            WholeGameStateBorder->SetVisibility(ESlateVisibility::Visible);
+        }
+    }
+}
+
+FString UHUD_ContentRetreiver::CleanResponse(const FString& RawResponse)
+{
+    
+    const FString StartMarker = "Here are the details:";
+    const FString EndMarker = "Write a short scene";
+
+    
+    int32 StartIndex = RawResponse.Find(StartMarker);
+    if (StartIndex != INDEX_NONE)
+    {
+        StartIndex += StartMarker.Len(); 
+    }
+    else
+    {
+        StartIndex = 0; 
+    }
+
+    
+    int32 EndIndex = RawResponse.Find(EndMarker, ESearchCase::IgnoreCase, ESearchDir::FromStart, StartIndex);
+    if (EndIndex == INDEX_NONE)
+    {
+        EndIndex = RawResponse.Len(); 
+    }
+
+    return RawResponse.Mid(StartIndex, EndIndex - StartIndex).TrimStartAndEnd();
+}
+
