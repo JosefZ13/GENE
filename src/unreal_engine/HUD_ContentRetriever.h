@@ -23,6 +23,7 @@ public:
 	void UpdateGameStateText();
 	void ProcessNewResponse(const FString& NewResponse);
 	void UpdateBorderVisibility();
+	void UpdateWholeGameStateBorderVisibility();
 	void TriggerFadeOut();
 	void UpdateWholeGameStateText();
 	void wrapper_function();
