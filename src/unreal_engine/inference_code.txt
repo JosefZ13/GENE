@@ -1,0 +1,39 @@
+Spara kod för att göra inference detaljer i hhtpSendReq
+
+
+void UHttpHandler_Get::httpSendReq(FString Payload, FString question, FString context)
+{
+    FHttpModule* Http = &FHttpModule::Get();
+    TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http->CreateRequest();
+
+    FString prompt = question + Payload;
+
+    TSharedPtr<FJsonObject> JsonPayload = MakeShareable(new FJsonObject);
+    JsonPayload->SetStringField(TEXT("prompt"), prompt);
+
+    JsonPayload->SetNumberField(TEXT("temperature"), 0.1f);   // Control randomness (0 to 1)
+    JsonPayload->SetNumberField(TEXT("max_tokens"), 50);      // Limit the response length
+    
+    
+
+
+    FString SerializedPayload;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&SerializedPayload);
+    FJsonSerializer::Serialize(JsonPayload.ToSharedRef(), Writer);
+
+    Request->SetURL(TEXT("https://api.openai.com/v1/completions")); 
+    Request->SetVerb(TEXT("POST"));
+    Request->SetHeader(TEXT("Content-Type"), TEXT("application/json; charset=utf-8"));
+    Request->SetHeader(TEXT("Authorization"), TEXT("Bearer "));
+
+    Request->SetContentAsString(SerializedPayload);
+    Request->OnProcessRequestComplete().BindUObject(this, &UHttpHandler_Get::OnResponseReceived, context);
+    if (Request->ProcessRequest())
+    {
+        UE_LOG(LogTemp, Log, TEXT("Payload sent: %s"), *SerializedPayload);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("Failed to send payload: %s"), *SerializedPayload);
+    }
+}
