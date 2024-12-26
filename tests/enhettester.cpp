@@ -7,7 +7,23 @@
 #include "Components/Border.h"
 #include "HAL/PlatformProcess.h"
 
-// Hj�lpfunktion f�r att v�nta med villkor
+/*HttpHandler_Get
+Verifierar att systemet korrekt kan hämta och bearbeta data från en HTTP-källa.
+- Tester: 
+  - Kontroll av korrekt borttagning av onödiga tecken (som newline) i svaren.
+  - Säkerställer att dataformatet är korrekt behandlat.
+HUD_ContentRetriever Säkerställer att spelets HUD (Heads-Up Display) visar information korrekt baserat på inkommande data.
+- Tester
+  - Kontroll av uppdatering av textfält med rätt information.
+  - Kontroll av att gränssnittets element, som synlighet och gränser, uppdateras korrekt.
+projectGameMode Testar spellogik som styr interaktionen mellan spelaren och omgivningen.
+- Tester:
+  - Kontroll av att vektorer serialiseras korrekt till JSON-format.
+  - Validerar funktioner för att beräkna en aktörs relativa position i förhållande till spelaren.
+  - Kontroll av anpassade frågeresponslogiker (t.ex. generera berättelser eller beskriva positioner baserat på data)
+  Testet returnerar true och markerar testet som lyckas eller false och markerar testet som Misslyckat.*/
+
+// Hjälpfunktion för att vänta med villkor
 bool WaitForCondition(UWorld* World, TFunction<bool()> Condition, float Timeout = 5.0f) {
     float StartTime = World->GetTimeSeconds();
     while (World->GetTimeSeconds() - StartTime < Timeout) {
@@ -19,14 +35,14 @@ bool WaitForCondition(UWorld* World, TFunction<bool()> Condition, float Timeout 
 }
 
 
-// Enhetstester f�r HttpHandler_Get.h
+// Enhetstester för HttpHandler_Get.h
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestTrimResponse_WithNewlines, "MyProject.HttpHandler.TrimResponse.WithNewlines", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
 bool TestTrimResponse_WithNewlines::RunTest(const FString& Parameters) {
     UHttpHandler_Get* HttpHandler = NewObject<UHttpHandler_Get>();
 
-    FString Input = "\n\nTeststr�ng\n\n";
-    FString Expected = "Teststr�ng";
+    FString Input = "\n\nTeststräng\n\n";
+    FString Expected = "Teststräng";
     FString Result = HttpHandler->TrimResponse(Input);
 
     TestEqual(TEXT("Should trim leading and trailing newlines"), Result, Expected);
@@ -37,8 +53,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestTrimResponse_NoNewlines, "MyProject.HttpHan
 bool TestTrimResponse_NoNewlines::RunTest(const FString& Parameters) {
     UHttpHandler_Get* HttpHandler = NewObject<UHttpHandler_Get>();
 
-    FString Input = "Teststr�ng";
-    FString Expected = "Teststr�ng";
+    FString Input = "Teststräng";
+    FString Expected = "Teststräng";
     FString Result = HttpHandler->TrimResponse(Input);
 
     TestEqual(TEXT("Should return the string as-is when no newlines"), Result, Expected);
@@ -46,7 +62,7 @@ bool TestTrimResponse_NoNewlines::RunTest(const FString& Parameters) {
 }
 
 
-// Enhetstester f�r HUD_ContentRetriever.h
+// Enhetstester för HUD_ContentRetriever.h
 
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestProcessNewResponse, "MyProject.HUDContentRetriever.ProcessNewResponse", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
@@ -93,7 +109,7 @@ bool TestUpdateBorderVisibility::RunTest(const FString& Parameters) {
     TestEqual(TEXT("Border for first text block should be visible"), HUD->GameStateBorder_0->GetVisibility(), ESlateVisibility::Visible);
     TestEqual(TEXT("Border for second text block should be collapsed"), HUD->GameStateBorder_1->GetVisibility(), ESlateVisibility::Collapsed);
 
-    // Enhetstester f�r gamemode_playerrelativity.h
+    // Enhetstester för gamemode_playerrelativity.h
 
 
     IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestSerializeVector, "MyProject.GameMode.SerializeVector", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
