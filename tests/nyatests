@@ -1,0 +1,273 @@
+#include "CoreMinimal.h"
+#include "Misc/AutomationTest.h"
+#include "HttpHandler_Get.h"
+#include "HUD_ContentRetriever.h"
+#include "projectGameMode.h"
+#include "Components/TextBlock.h"
+#include "Components/Border.h"
+#include "Engine/World.h" // Inkludera World.h för mock-spelvärlden
+
+// Helper function for waiting with condition
+bool WaitForCondition(UWorld* World, TFunction<bool()> Condition, float Timeout = 5.0f) {
+    float StartTime = World->GetTimeSeconds();
+    while (World->GetTimeSeconds() - StartTime < Timeout) {
+        if (Condition()) return true;
+        FPlatformProcess::Sleep(0.1f);
+        World->Tick(LEVELTICK_All, 0.1f);
+    }
+    return false;
+}
+
+// Enhetstester för HttpHandler_Get.h
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestHttpHandler_TrimResponse_WithNewlines, "MyProject.HttpHandler.TrimResponse.WithNewlines", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestHttpHandler_TrimResponse_WithNewlines::RunTest(const FString& Parameters) {
+    // Skapa en instans av HttpHandler
+    UHttpHandler_Get* HttpHandler = NewObject<UHttpHandler_Get>();
+
+    // Definiera input och förväntat resultat
+    FString Input = "\n\nTeststräng\n\n";
+    FString Expected = "Teststräng";
+
+    // Anropa funktionen och hämta resultatet
+    FString Result = HttpHandler->TrimResponse(Input);
+
+    // Verifiera att resultatet matchar det förväntade resultatet
+    TestEqual(TEXT("Should trim leading and trailing newlines"), Result, Expected);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestHttpHandler_TrimResponse_NoNewlines, "MyProject.HttpHandler.TrimResponse.NoNewlines", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestHttpHandler_TrimResponse_NoNewlines::RunTest(const FString& Parameters) {
+    // Skapa en instans av HttpHandler
+    UHttpHandler_Get* HttpHandler = NewObject<UHttpHandler_Get>();
+
+    // Definiera input och förväntat resultat
+    FString Input = "Teststräng";
+    FString Expected = "Teststräng";
+
+    // Anropa funktionen och hämta resultatet
+    FString Result = HttpHandler->TrimResponse(Input);
+
+    // Verifiera att resultatet matchar det förväntade resultatet
+    TestEqual(TEXT("Should return the string as-is when no newlines"), Result, Expected);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestHttpHandler_TrimResponse_Empty, "MyProject.HttpHandler.TrimResponse.Empty", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestHttpHandler_TrimResponse_Empty::RunTest(const FString& Parameters) {
+    // Skapa en instans av HttpHandler
+    UHttpHandler_Get* HttpHandler = NewObject<UHttpHandler_Get>();
+
+    // Definiera input och förväntat resultat
+    FString Input = "";
+    FString Expected = "";
+
+    // Anropa funktionen och hämta resultatet
+    FString Result = HttpHandler->TrimResponse(Input);
+
+    // Verifiera att resultatet matchar det förväntade resultatet
+    TestEqual(TEXT("Should return an empty string when input is empty"), Result, Expected);
+    return true;
+}
+
+// Enhetstester för HUD_ContentRetriever.h
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestHUDContentRetriever_ProcessNewResponse, "MyProject.HUDContentRetriever.ProcessNewResponse", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestHUDContentRetriever_ProcessNewResponse::RunTest(const FString& Parameters) {
+    // Skapa en instans av HUD_ContentRetriever
+    UHUD_ContentRetriever* HUD = NewObject<UHUD_ContentRetriever>();
+    FString NewResponse = "Testrespons";
+
+    // Anropa funktionen för att lägga till en ny respons i kön
+    HUD->ProcessNewResponse(NewResponse);
+
+    // Hämta responsen från kön
+    FString RetrievedResponse;
+    bool Success = HUD->ResponseQueue.Dequeue(RetrievedResponse);
+
+    // Verifiera att responsen har lagts till i kön
+    TestTrue(TEXT("Response should be added to the queue"), Success && RetrievedResponse == NewResponse);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestHUDContentRetriever_UpdateGameStateText, "MyProject.HUDContentRetriever.UpdateGameStateText", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestHUDContentRetriever_UpdateGameStateText::RunTest(const FString& Parameters) {
+    // Skapa en instans av HUD_ContentRetriever och två textblock
+    UHUD_ContentRetriever* HUD = NewObject<UHUD_ContentRetriever>();
+    HUD->GameStateTexts = { NewObject<UTextBlock>(), NewObject<UTextBlock>() };
+
+    // Lägg till två responser i kön
+    FString Response1 = "Response 1";
+    FString Response2 = "Response 2";
+    HUD->ResponseQueue.Enqueue(Response1);
+    HUD->ResponseQueue.Enqueue(Response2);
+
+    // Uppdatera textblocken
+    HUD->UpdateGameStateText();
+
+    // Verifiera att textblocken har uppdaterats korrekt
+    TestEqual(TEXT("First text block should be updated with the latest response"), HUD->GameStateTexts[0]->GetText().ToString(), Response2);
+    TestEqual(TEXT("Second text block should be updated with the previous response"), HUD->GameStateTexts[1]->GetText().ToString(), Response1);
+
+    // Uppdatera textblocken igen
+    HUD->UpdateGameStateText();
+
+    // Verifiera att textblocken har uppdaterats korrekt och att kön är tom
+    TestEqual(TEXT("First text block should update with the previous response"), HUD->GameStateTexts[0]->GetText().ToString(), Response1);
+    TestTrue(TEXT("Queue should be empty after processing all responses"), HUD->ResponseQueue.IsEmpty());
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestHUDContentRetriever_UpdateGameStateText_EmptyQueue, "MyProject.HUDContentRetriever.UpdateGameStateText.EmptyQueue", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestHUDContentRetriever_UpdateGameStateText_EmptyQueue::RunTest(const FString& Parameters) {
+    // Skapa en instans av HUD_ContentRetriever
+    UHUD_ContentRetriever* HUD = NewObject<UHUD_ContentRetriever>();
+    HUD->GameStateTexts = { NewObject<UTextBlock>(), NewObject<UTextBlock>() };
+
+    // Anropa UpdateGameStateText med en tom kö
+    HUD->UpdateGameStateText();
+
+    // Verifiera att textblocken inte har ändrats
+    TestEqual(TEXT("First text block should remain unchanged"), HUD->GameStateTexts[0]->GetText().ToString(), "");
+    TestEqual(TEXT("Second text block should remain unchanged"), HUD->GameStateTexts[1]->GetText().ToString(), "");
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestHUDContentRetriever_UpdateBorderVisibility, "MyProject.HUDContentRetriever.UpdateBorderVisibility", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestHUDContentRetriever_UpdateBorderVisibility::RunTest(const FString& Parameters) {
+    // Skapa en instans av HUD_ContentRetriever och två textblock
+    UHUD_ContentRetriever* HUD = NewObject<UHUD_ContentRetriever>();
+    HUD->GameStateTexts = { NewObject<UTextBlock>(), NewObject<UTextBlock>() };
+    HUD->GameStateTexts[0]->SetText(FText::FromString("Non-empty"));
+    HUD->GameStateTexts[1]->SetText(FText::FromString(""));
+
+    // Skapa mock-objekt av UBorder
+    UBorder* MockBorder0 = NewObject<UBorder>();
+    UBorder* MockBorder1 = NewObject<UBorder>();
+
+    // Tilldela mock-objekten till HUD
+    HUD->GameStateBorder_0 = MockBorder0;
+    HUD->GameStateBorder_1 = MockBorder1;
+
+    // Uppdatera gränssnittets synlighet
+    HUD->UpdateBorderVisibility();
+
+    // Verifiera att gränssnittets synlighet har uppdaterats korrekt
+    TestEqual(TEXT("Border for first text block should be visible"), HUD->GameStateBorder_0->GetVisibility(), ESlateVisibility::Visible);
+    TestEqual(TEXT("Border for second text block should be collapsed"), HUD->GameStateBorder_1->GetVisibility(), ESlateVisibility::Collapsed);
+    return true;
+}
+
+// Enhetstester för gamemode_playerrelativity.h
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestGameMode_SerializeVector, "MyProject.GameMode.SerializeVector", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestGameMode_SerializeVector::RunTest(const FString& Parameters) {
+    // Skapa en instans av AprojectGameMode
+    AprojectGameMode* GameMode = NewObject<AprojectGameMode>();
+
+    // Skapa en vektor
+    FVector Vector(1.0f, 2.0f, 3.0f);
+
+    // Serialisera vektorn till ett JSON-objekt
+    TSharedPtr<FJsonObject> JsonObject = GameMode->SerializeVector(Vector);
+
+    // Verifiera att JSON-objektet innehåller korrekta värden
+    TestEqual(TEXT("X value should be correct"), JsonObject->GetNumberField("x"), 1.0f);
+    TestEqual(TEXT("Y value should be correct"), JsonObject->GetNumberField("y"), 2.0f);
+    TestEqual(TEXT("Z value should be correct"), JsonObject->GetNumberField("z"), 3.0f);
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestGameMode_GetRelativePosition_InFront, "MyProject.GameMode.GetRelativePosition.InFront", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestGameMode_GetRelativePosition_InFront::RunTest(const FString& Parameters) {
+    // Skapa en instans av AprojectGameMode
+    AprojectGameMode* GameMode = NewObject<AprojectGameMode>();
+
+    // Skapa en mock-spelvärld
+    UWorld* MockWorld = NewObject<UWorld>();
+
+    // Tilldela mock-spelvärlden till GameMode
+    GameMode->SetWorld(MockWorld);
+
+    // Anropa funktionen med värden som indikerar att aktören är framför spelaren
+    FString Result = GameMode->GetRelativePosition(1.0f, 0.0f, 0.0f);
+
+    // Verifiera att resultatet är korrekt
+    TestEqual(TEXT("Actor should be directly in front"), Result, "Actor is directly in front of the player.");
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestGameMode_GetRelativePosition_BehindRightAbove, "MyProject.GameMode.GetRelativePosition.BehindRightAbove", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestGameMode_GetRelativePosition_BehindRightAbove::RunTest(const FString& Parameters) {
+    // Skapa en instans av AprojectGameMode
+    AprojectGameMode* GameMode = NewObject<AprojectGameMode>();
+
+    // Skapa en mock-spelvärld
+    UWorld* MockWorld = NewObject<UWorld>();
+
+    // Tilldela mock-spelvärlden till GameMode
+    GameMode->SetWorld(MockWorld);
+
+    // Anropa funktionen med värden som indikerar att aktören är bakom, till höger och ovanför spelaren
+    FString Result = GameMode->GetRelativePosition(-0.5f, 0.5f, 0.5f);
+
+    // Verifiera att resultatet är korrekt
+    TestEqual(TEXT("Actor should be behind-right-above"), Result, "Actor is behind-right-above the player.");
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestGameMode_GetRelativePosition_Below, "MyProject.GameMode.GetRelativePosition.Below", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestGameMode_GetRelativePosition_Below::RunTest(const FString& Parameters) {
+    // Skapa en instans av AprojectGameMode
+    AprojectGameMode* GameMode = NewObject<AprojectGameMode>();
+
+    // Skapa en mock-spelvärld
+    UWorld* MockWorld = NewObject<UWorld>();
+
+    // Tilldela mock-spelvärlden till GameMode
+    GameMode->SetWorld(MockWorld);
+
+    // Anropa funktionen med värden som indikerar att aktören är under spelaren
+    FString Result = GameMode->GetRelativePosition(0.0f, 0.0f, -1.0f);
+
+    // Verifiera att resultatet är korrekt
+    TestEqual(TEXT("Actor should be directly below"), Result, "Actor is directly below the player.");
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestGameMode_QuestionPrompt_ActorMovement, "MyProject.GameMode.QuestionPrompt.ActorMovement", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestGameMode_QuestionPrompt_ActorMovement::RunTest(const FString& Parameters) {
+    // Skapa en instans av AprojectGameMode
+    AprojectGameMode* GameMode = NewObject<AprojectGameMode>();
+
+    // Anropa funktionen med "ActorMovement" som indikator
+    FString Result = GameMode->question_prompt("ActorMovement");
+
+    // Verifiera att resultatet är korrekt
+    TestEqual(TEXT("ActorMovement prompt should match"), Result, "Tell the ObjectName, its distance and the relative position that is mentioned in the provided data. Stop when you have said it. Do not answer with json like format. Answer in regular text. \n");
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestGameMode_QuestionPrompt_StoryWholeJson, "MyProject.GameMode.QuestionPrompt.StoryWholeJson", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestGameMode_QuestionPrompt_StoryWholeJson::RunTest(const FString& Parameters) {
+    // Skapa en instans av AprojectGameMode
+    AprojectGameMode* GameMode = NewObject<AprojectGameMode>();
+
+    // Anropa funktionen med "StoryWholeJson" som indikator
+    FString Result = GameMode->question_prompt("StoryWholeJson");
+
+    // Verifiera att resultatet är korrekt
+    TestEqual(TEXT("StoryWholeJson prompt should match"), Result, "Write a short story using the following details without explaining your process.\n");
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestGameMode_QuestionPrompt_Story, "MyProject.GameMode.QuestionPrompt.Story", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+bool TestGameMode_QuestionPrompt_Story::RunTest(const FString& Parameters) {
+    // Skapa en instans av AprojectGameMode
+    AprojectGameMode* GameMode = NewObject<AprojectGameMode>();
+
+    // Anropa funktionen med "Story" som indikator
+    FString Result = GameMode->question_prompt("Story");
+
+    // Verifiera att resultatet är korrekt
+    TestEqual(TEXT("Story prompt should match"), Result, "Generate a story based on the provided data. Stop when you have said it. Do not answer with json like format. Answer in regular text.\n");
+    return true;
+}
