@@ -682,4 +682,5 @@ void AGameStateStoryGen::RecordLLMResponse(const FString& Response)
 	{
 		LLMResponseArray.RemoveAt(0);
 	}
+
 }
