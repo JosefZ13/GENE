@@ -8,6 +8,18 @@
 #include "Components/Border.h"
 #include "Serialization/JsonReader.h"
 
+/**
+ * # File: HUD_ContentRetriever.cpp
+ *
+ * ## Brief
+ * Responsible for retreiving and displaying LLM repsonses.
+ *
+ * ## Details
+ * NativeTick() periodiclly reads the LLM repsonses and displays them in GameStateText.
+ * UpdateBorderVisibility() makes sure the HUD is not visible if there is no content.
+ * 
+ */
+
 float TimeSinceLastRead_1 = 0.0f;
 float TimetoFade = 0.0f;
 
@@ -73,8 +85,6 @@ void UHUD_ContentRetreiver::NativeTick(const FGeometry& MyGeometry, float InDelt
         PlayAnimation(FadeOutAnimation);
     }
 }
-
-
 
 void UHUD_ContentRetreiver::UpdateBorderVisibility()
 {
