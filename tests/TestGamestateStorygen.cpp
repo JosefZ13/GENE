@@ -1,7 +1,5 @@
 #include "CoreMinimal.h" // Core Unreal Engine functionality
 #include "Misc/AutomationTest.h" // Automation testing framework
-#include "../projectGameMode.h" // Project-specific GameMode header
-#include "../HttpHandler_Get.h" // Project-specific HTTP handler
 #include "Misc/Paths.h" // File path utilities
 #include "Misc/FileHelper.h" // File helper utilities
 #include "GameFramework/GameModeBase.h" // Base GameMode functionality
@@ -10,7 +8,6 @@
 #include "Kismet/GameplayStatics.h" // Gameplay utility functions
 #include "GameStateStoryGen.h" // Custom GameState class for testing
 #include "Engine/World.h" // World management utilities
-#include "JsonObjectConverter.h" // JSON utilities
 #include "HttpModule.h" // HTTP communication module
 #include "Interfaces/IHttpRequest.h" // HTTP request interface
 #include "Interfaces/IHttpResponse.h" // HTTP response interface
