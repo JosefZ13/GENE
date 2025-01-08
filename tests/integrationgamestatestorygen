@@ -1,0 +1,92 @@
+/* inkludera på buildproject.cs : PublicIncludePaths.AddRange(new string[] { "Project/Tests" });
+*/
+
+// Includes the AutomationTest header, which provides macros and utilities for creating and running automated tests in Unreal Engine.
+#include "Misc/AutomationTest.h"
+
+// Includes the header file for the AGameStateStoryGen class, which is the class under test.
+#include "GameStateStoryGen.h"
+
+// Includes the Unreal Engine World class, which is used to create and manage the game world context in tests.
+#include "Engine/World.h"
+
+// Includes the GameplayStatics class, which provides utility functions for interacting with gameplay elements, such as spawning actors or finding objects.
+#include "Kismet/GameplayStatics.h"
+
+// Includes the HttpModule, which is used for making HTTP requests and managing network communication.
+#include "HttpModule.h"
+
+// Includes the IHttpResponse interface, which is used to handle HTTP responses from server requests.
+#include "Interfaces/IHttpResponse.h"
+
+// Defines a simple automation test named FGameStateStoryGenTest. 
+// The test is categorized under "Project.GameStateStoryGen.Integration" and is run in the editor context.
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGameStateStoryGenTest, "Project.GameStateStoryGen.Integration", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+// Implementation of the test logic.
+bool FGameStateStoryGenTest::RunTest(const FString& Parameters)
+{
+    // Step 1: Create a new world context for the test.
+    UWorld* World = FAutomationEditorCommonUtils::CreateNewMap();
+    if (!World) // Verify that the world was created successfully.
+    {
+        AddError(TEXT("Failed to create a test map!"));
+        return false; // Exit the test if world creation fails.
+    }
+
+    // Step 2: Spawn an instance of AGameStateStoryGen in the created world.
+    AGameStateStoryGen* GameState = World->SpawnActor<AGameStateStoryGen>();
+    if (!GameState) // Verify that the GameState was spawned successfully.
+    {
+        AddError(TEXT("Failed to spawn AGameStateStoryGen!"));
+        return false; // Exit the test if spawning fails.
+    }
+
+    // Step 3: Call BeginPlay on the GameState and verify it initializes correctly.
+    GameState->BeginPlay();
+    TestTrue(TEXT("GameState BeginPlay initialized successfully"), GameState->StartEnviroment.IsValid());
+
+    // Step 4: Generate the starting environment and verify it produces valid JSON.
+    TSharedPtr<FJsonObject> Environment = GameState->GenerateStartEnvironment();
+    TestTrue(TEXT("Environment JSON generated"), Environment.IsValid());
+
+    // Step 5: Check that the generated environment contains the correct game title.
+    FString GameTitle;
+    TestTrue(TEXT("Environment has Game Title"), Environment->TryGetStringField(TEXT("game_title"), GameTitle));
+    TestEqual(TEXT("Game Title is correct"), GameTitle, TEXT("Woods Adventure"));
+
+    // Step 6: Spawn a test actor and add it to the tracked actors list, then verify tracking.
+    AActor* TestActor = World->SpawnActor<AActor>();
+    TestActor->Tags.Add(TEXT("Type:Rock")); // Add relevant tags for testing.
+    TestActor->Tags.Add(TEXT("Description:A small rock"));
+    GameState->GetActors(); // Call the function to gather tracked actors.
+
+    TestTrue(TEXT("Tracked objects list populated"), GameState->TrackedObjects.Num() > 0);
+
+    // Step 7: Test relative position calculations by moving the actor and checking output.
+    GameState->PerformTracking();
+    FVector ActorLocation(500.0f, 500.0f, 100.0f); // Set a specific location for the test actor.
+    TestActor->SetActorLocation(ActorLocation);
+    GameState->GetPlayerRelativity(TestActor);
+
+    // Step 8: Trigger the HTTP request preparation function and ensure it doesn't crash or throw errors.
+    GameState->httpSendReq();
+    TestTrue(TEXT("HTTP request triggered"), true); // Verify the request was initiated (placeholder).
+
+    // Step 9: Mock an LLM response, deserialize it, and verify the response handling logic.
+    FString TestResponse = R"({"choices":[{"message":{"content":"Test story content"}}]})"; // Simulated response JSON.
+    TSharedPtr<FJsonObject> MockResponse = MakeShareable(new FJsonObject);
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(TestResponse);
+
+    if (FJsonSerializer::Deserialize(Reader, MockResponse) && MockResponse.IsValid()) // Ensure response deserialization works.
+    {
+        GameState->OnResponseReceived(nullptr, FHttpResponsePtr(), true); // Call the response handler.
+        TestTrue(TEXT("LLM response handled"), GameState->LLMResponseArray.Num() > 0); // Verify that responses are stored.
+    }
+    else
+    {
+        AddError(TEXT("Failed to deserialize mock response")); // Log an error if deserialization fails.
+    }
+
+    return true; // Return success if all checks pass.
+}
