@@ -15,6 +15,7 @@ class PROJECT_API AGameStateStoryGen : public AGameStateBase
 	GENERATED_BODY()
 
 public:
+	AGameStateStoryGen();
 	// Tick Functions
 	void TickObjectMovement();
 
@@ -28,10 +29,6 @@ public:
 	// For determining relativity
 	void GetPlayerRelativity(const AActor* TargetActor);
 	FString GetRelativePosition(const double& ForwardDot, const double& RightDot, const double& VerticalDot);
-	void RecordLLMResponse(const FString& Response);
-
-	// Http communication with LLMs inference script
-	static FString TrimResponse(const FString& InputString);
 
 	//FString question_prompt(const FString& indicator);
 	void SendPayload(const TSharedPtr<FJsonObject>& Event);
@@ -41,6 +38,18 @@ public:
 
 	// Other
 	virtual void BeginPlay() override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LLM-Service")
+	FString RetrievedApiKey;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "World Details")
+	FString GameTitle;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "World Details")
+	FString Theme;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "World Details")
+	FString Description;
 
 private:
 	// Timer
@@ -67,5 +76,4 @@ private:
 	int Event_Count = 0;
 
 	void OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
-
 };
