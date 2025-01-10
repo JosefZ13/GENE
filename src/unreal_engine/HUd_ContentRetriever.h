@@ -32,9 +32,9 @@ public:
 	FString newResponse;
 	FString prevWholeResponse;
 	float TimeSinceLastBorderUpdate = 0.0f;
-	TArray<bool> BordersChanged;
+	//TArray<bool> BordersChanged;
 
-	TQueue<FString> ResponseQueue;
+	//TQueue<FString> ResponseQueue;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (BindWidget))
 	class UTextBlock* GameStateText;
